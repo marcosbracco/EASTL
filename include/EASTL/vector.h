@@ -139,7 +139,7 @@ namespace eastl
 		#endif
 
 	protected:
-		T*                                          mpBegin;
+		typename allocator_type::allocated_type     mpBegin;
 		T*                                          mpEnd;
 		eastl::compressed_pair<T*, allocator_type>  mCapacityAllocator;
 
@@ -160,8 +160,8 @@ namespace eastl
 		void                  set_allocator(const allocator_type& allocator);
 
 	protected:
-		T*        DoAllocate(size_type n);
-		void      DoFree(T* p, size_type n);
+		typename allocator_type::allocated_type        DoAllocate(size_type n);
+		void      DoFree(typename allocator_type::allocated_type p, size_type n);
 		size_type GetNewCapacity(size_type currentCapacity);
 
 	}; // VectorBase
@@ -323,10 +323,10 @@ namespace eastl
 		using should_move_tag = should_move_or_copy_tag<true>;
 
 		template <typename ForwardIterator> // Allocates a pointer of array count n and copy-constructs it with [first,last).
-		pointer DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_copy_tag);
+		typename allocator_type::allocated_type DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_copy_tag);
 
 		template <typename ForwardIterator> // Allocates a pointer of array count n and copy-constructs it with [first,last).
-		pointer DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_move_tag);
+		typename allocator_type::allocated_type DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_move_tag);
 
 		template <typename Integer>
 		void DoInit(Integer n, Integer value, true_type);
@@ -426,7 +426,8 @@ namespace eastl
 	inline VectorBase<T, Allocator>::~VectorBase()
 	{
 		if(mpBegin)
-			EASTLFree(internalAllocator(), mpBegin, (internalCapacityPtr() - mpBegin) * sizeof(T));
+//			EASTLFree(internalAllocator(), mpBegin, (internalCapacityPtr() - mpBegin) * sizeof(T));
+			internalAllocator().deallocate_array(mpBegin);
 	}
 
 
@@ -454,7 +455,7 @@ namespace eastl
 
 
 	template <typename T, typename Allocator>
-	inline T* VectorBase<T, Allocator>::DoAllocate(size_type n)
+	inline typename Allocator::allocated_type VectorBase<T, Allocator>::DoAllocate(size_type n)
 	{
 		#if EASTL_ASSERT_ENABLED
 			if(EASTL_UNLIKELY(n >= 0x80000000))
@@ -465,7 +466,8 @@ namespace eastl
 		// This is fine, as our default ctor initializes with NULL pointers. 
 		if(EASTL_LIKELY(n))
 		{
-			auto* p = (T*)allocate_memory(internalAllocator(), n * sizeof(T), EASTL_ALIGN_OF(T), 0);
+//			auto* p = (T*)allocate_memory(internalAllocator(), n * sizeof(T), EASTL_ALIGN_OF(T), 0);
+			auto p = internalAllocator().allocate_array(n);
 			EASTL_ASSERT_MSG(p != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 			return p;
 		}
@@ -477,10 +479,11 @@ namespace eastl
 
 
 	template <typename T, typename Allocator>
-	inline void VectorBase<T, Allocator>::DoFree(T* p, size_type n)
+	inline void VectorBase<T, Allocator>::DoFree(typename Allocator::allocated_type p, size_type n)
 	{
 		if(p)
-			EASTLFree(internalAllocator(), p, n * sizeof(T)); 
+			// EASTLFree(internalAllocator(), p, n * sizeof(T)); 
+			internalAllocator().deallocate_array(p);
 	}
 
 
@@ -852,7 +855,7 @@ namespace eastl
 		}
 		else // Else new capacity > size.
 		{
-			pointer const pNewData = DoRealloc(n, mpBegin, mpEnd, should_move_tag());
+			auto pNewData = DoRealloc(n, mpBegin, mpEnd, should_move_tag());
 			eastl::destruct(mpBegin, mpEnd);
 			DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
@@ -1385,10 +1388,10 @@ namespace eastl
 
 	template <typename T, typename Allocator>
 	template <typename ForwardIterator>
-	inline typename vector<T, Allocator>::pointer
+	inline typename Allocator::allocated_type
 	vector<T, Allocator>::DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_copy_tag)
 	{
-		T* const p = DoAllocate(n); // p is of type T* but is not constructed. 
+		auto p = DoAllocate(n); // p is of type T* but is not constructed. 
 		eastl::uninitialized_copy_ptr(first, last, p); // copy-constructs p from [first,last).
 		return p;
 	}
@@ -1396,10 +1399,10 @@ namespace eastl
 
 	template <typename T, typename Allocator>
 	template <typename ForwardIterator>
-	inline typename vector<T, Allocator>::pointer
+	inline typename Allocator::allocated_type
 	vector<T, Allocator>::DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_move_tag)
 	{
-		T* const p = DoAllocate(n); // p is of type T* but is not constructed. 
+		auto p = DoAllocate(n); // p is of type T* but is not constructed. 
 		eastl::uninitialized_move_ptr_if_noexcept(first, last, p); // move-constructs p from [first,last).
 		return p;
 	}
@@ -1517,7 +1520,7 @@ namespace eastl
 
 		if(n > size_type(internalCapacityPtr() - mpBegin)) // If n > capacity ...
 		{
-			pointer const pNewData = DoRealloc(n, first, last, should_move_or_copy_tag<bMove>());
+			auto pNewData = DoRealloc(n, first, last, should_move_or_copy_tag<bMove>());
 			eastl::destruct(mpBegin, mpEnd);
 			DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
@@ -1608,7 +1611,7 @@ namespace eastl
 				const size_type nPrevSize = size_type(mpEnd - mpBegin);
 				const size_type nGrowSize = GetNewCapacity(nPrevSize);
 				const size_type nNewSize  = nGrowSize > (nPrevSize + n) ? nGrowSize : (nPrevSize + n);
-				pointer const   pNewData  = DoAllocate(nNewSize);
+				auto            pNewData  = DoAllocate(nNewSize);
 
 				#if EASTL_EXCEPTIONS_ENABLED
 					pointer pNewEnd = pNewData;
@@ -1681,7 +1684,7 @@ namespace eastl
 			const size_type nPrevSize = size_type(mpEnd - mpBegin);
 			const size_type nGrowSize = GetNewCapacity(nPrevSize);
 			const size_type nNewSize  = nGrowSize > (nPrevSize + n) ? nGrowSize : (nPrevSize + n);
-			pointer const pNewData    = DoAllocate(nNewSize);
+			auto            pNewData  = DoAllocate(nNewSize);
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				pointer pNewEnd = pNewData;
@@ -1725,7 +1728,7 @@ namespace eastl
 	template <typename T, typename Allocator>
 	void vector<T, Allocator>::DoGrow(size_type n)
 	{
-		pointer const pNewData = DoAllocate(n);
+		auto pNewData = DoAllocate(n);
 
 		pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin, mpEnd, pNewData);
 
@@ -1756,7 +1759,7 @@ namespace eastl
 			const size_type nPrevSize = size_type(mpEnd - mpBegin);
 			const size_type nGrowSize = GetNewCapacity(nPrevSize);
 			const size_type nNewSize = eastl::max(nGrowSize, nPrevSize + n);
-			pointer const pNewData = DoAllocate(nNewSize);
+			auto            pNewData = DoAllocate(nNewSize);
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				pointer pNewEnd = pNewData; // Assign pNewEnd a value here in case the copy throws.
@@ -1799,7 +1802,7 @@ namespace eastl
 			const size_type nPrevSize = size_type(mpEnd - mpBegin);
 			const size_type nGrowSize = GetNewCapacity(nPrevSize);
 			const size_type nNewSize = eastl::max(nGrowSize, nPrevSize + n);
-			pointer const pNewData = DoAllocate(nNewSize);
+			auto            pNewData = DoAllocate(nNewSize);
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				pointer pNewEnd = pNewData;  // Assign pNewEnd a value here in case the copy throws.
@@ -1870,7 +1873,7 @@ namespace eastl
 			const size_type nPosSize  = size_type(destPosition - mpBegin); // Index of the insertion position.
 			const size_type nPrevSize = size_type(mpEnd - mpBegin);
 			const size_type nNewSize  = GetNewCapacity(nPrevSize);
-			pointer const   pNewData  = DoAllocate(nNewSize);
+			auto            pNewData  = DoAllocate(nNewSize);
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				pointer pNewEnd = pNewData;
@@ -1913,7 +1916,7 @@ namespace eastl
 	{
 		const size_type nPrevSize = size_type(mpEnd - mpBegin);
 		const size_type nNewSize  = GetNewCapacity(nPrevSize);
-		pointer const   pNewData  = DoAllocate(nNewSize);
+		auto            pNewData  = DoAllocate(nNewSize);
 
 		#if EASTL_EXCEPTIONS_ENABLED
 			pointer pNewEnd = pNewData; // Assign pNewEnd a value here in case the copy throws.
