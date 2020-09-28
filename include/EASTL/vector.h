@@ -127,6 +127,7 @@ namespace eastl
 		typedef Allocator    allocator_type;
 		typedef eastl_size_t size_type;
 		typedef ptrdiff_t    difference_type;
+		typedef typename Allocator::template pointer_types<T>::array array_type;
 
 		#if defined(_MSC_VER) && (_MSC_VER >= 1400) && (_MSC_VER <= 1600) && !EASTL_STD_CPP_ONLY  // _MSC_VER of 1400 means VS2005, 1600 means VS2010. VS2012 generates errors with usage of enum:size_type.
 			enum : size_type {                      // Use Microsoft enum language extension, allowing for smaller debug symbols than using a static const. Users have been affected by this.
@@ -139,7 +140,7 @@ namespace eastl
 		#endif
 
 	protected:
-		typename allocator_type::soft_array_type     mpBegin;
+		array_type                                  mpBegin;
 		T*                                          mpEnd;
 		eastl::compressed_pair<T*, allocator_type>  mCapacityAllocator;
 
@@ -160,8 +161,8 @@ namespace eastl
 		void                  set_allocator(const allocator_type& allocator);
 
 	protected:
-		typename allocator_type::soft_array_type        DoAllocate(size_type n);
-		void      DoFree(typename allocator_type::soft_array_type p, size_type n);
+		array_type DoAllocate(size_type n);
+		void      DoFree(array_type p, size_type n);
 		size_type GetNewCapacity(size_type currentCapacity);
 
 	}; // VectorBase
@@ -192,6 +193,7 @@ namespace eastl
 		typedef typename base_type::size_type                 size_type;
 		typedef typename base_type::difference_type           difference_type;
 		typedef typename base_type::allocator_type            allocator_type;
+		typedef typename base_type::array_type                array_type;
 
 		using base_type::mpBegin;
 		using base_type::mpEnd;
@@ -323,10 +325,10 @@ namespace eastl
 		using should_move_tag = should_move_or_copy_tag<true>;
 
 		template <typename ForwardIterator> // Allocates a pointer of array count n and copy-constructs it with [first,last).
-		typename allocator_type::soft_array_type DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_copy_tag);
+		array_type DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_copy_tag);
 
 		template <typename ForwardIterator> // Allocates a pointer of array count n and copy-constructs it with [first,last).
-		typename allocator_type::soft_array_type DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_move_tag);
+		array_type DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_move_tag);
 
 		template <typename Integer>
 		void DoInit(Integer n, Integer value, true_type);
@@ -427,7 +429,7 @@ namespace eastl
 	{
 		if(mpBegin)
 //			EASTLFree(internalAllocator(), mpBegin, (internalCapacityPtr() - mpBegin) * sizeof(T));
-			internalAllocator().deallocate_array(mpBegin);
+			internalAllocator().template deallocate_array<T>(mpBegin, internalCapacityPtr() - mpBegin);
 	}
 
 
@@ -455,7 +457,7 @@ namespace eastl
 
 
 	template <typename T, typename Allocator>
-	inline typename VectorBase<T, Allocator>::allocator_type::soft_array_type VectorBase<T, Allocator>::DoAllocate(size_type n)
+	inline typename VectorBase<T, Allocator>::array_type VectorBase<T, Allocator>::DoAllocate(size_type n)
 	{
 		#if EASTL_ASSERT_ENABLED
 			if(EASTL_UNLIKELY(n >= 0x80000000))
@@ -467,7 +469,7 @@ namespace eastl
 		if(EASTL_LIKELY(n))
 		{
 //			auto* p = (T*)allocate_memory(internalAllocator(), n * sizeof(T), EASTL_ALIGN_OF(T), 0);
-			auto p = internalAllocator().allocate_array(n);
+			auto p = internalAllocator().template allocate_array<T>(n);
 			EASTL_ASSERT_MSG(p != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 			return p;
 		}
@@ -479,11 +481,11 @@ namespace eastl
 
 
 	template <typename T, typename Allocator>
-	inline void VectorBase<T, Allocator>::DoFree(typename allocator_type::soft_array_type p, size_type n)
+	inline void VectorBase<T, Allocator>::DoFree(array_type p, size_type n)
 	{
 		if(p)
 			// EASTLFree(internalAllocator(), p, n * sizeof(T)); 
-			internalAllocator().deallocate_array(p);
+			internalAllocator().template deallocate_array<T>(p, n);
 	}
 
 
@@ -1389,7 +1391,7 @@ namespace eastl
 
 	template <typename T, typename Allocator>
 	template <typename ForwardIterator>
-	inline typename vector<T, Allocator>::allocator_type::soft_array_type
+	inline typename vector<T, Allocator>::array_type
 	vector<T, Allocator>::DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_copy_tag)
 	{
 		auto p = DoAllocate(n); // p is of type T* but is not constructed. 
@@ -1400,7 +1402,7 @@ namespace eastl
 
 	template <typename T, typename Allocator>
 	template <typename ForwardIterator>
-	inline typename vector<T, Allocator>::allocator_type::soft_array_type
+	inline typename vector<T, Allocator>::array_type
 	vector<T, Allocator>::DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_move_tag)
 	{
 		auto p = DoAllocate(n); // p is of type T* but is not constructed. 

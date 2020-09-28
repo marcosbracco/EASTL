@@ -1667,7 +1667,7 @@ namespace eastl
 		EASTL_ASSERT(n > 1); // We reserve an mnBucketCount of 1 for the shared gpEmptyBucketArray.
 		EASTL_CT_ASSERT(kHashtableAllocFlagBuckets == 0x00400000); // Currently we expect this to be so, because the allocator has a copy of this enum.
 //		node_type** const pBucketArray = (node_type**)EASTLAllocAlignedFlags(mAllocator, (n + 1) * sizeof(node_type*), EASTL_ALIGN_OF(node_type*), 0, kHashtableAllocFlagBuckets);
-		bucket_array_type const pBucketArray = mAllocator.allocate_array_zeroed<node_pointer>(n + 1);
+		bucket_array_type const pBucketArray = mAllocator.allocate_array_zeroed<node_pointer>(n + 1, kHashtableAllocFlagBuckets);
 		//eastl::fill(pBucketArray, pBucketArray + n, (node_type*)NULL);
 		//memset(pBucketArray, 0, n * sizeof(node_pointer));
 		pBucketArray[n] = node_pointer(make_zero_offset_t(), reinterpret_cast<node_type*>((uintptr_t)~0));
@@ -1685,7 +1685,7 @@ namespace eastl
 		// than another but pass a hashtable to another. So we go by the size.
 		if(n > 1)
 			// EASTLFree(mAllocator, pBucketArray, (n + 1) * sizeof(node_type*)); // '+1' because DoAllocateBuckets allocates nBucketCount + 1 buckets in order to have a NULL sentinel at the end.
-			mAllocator.deallocate_array<node_pointer>(pBucketArray);
+			mAllocator.deallocate_array<node_pointer>(pBucketArray, n + 1);
 	}
 
 
