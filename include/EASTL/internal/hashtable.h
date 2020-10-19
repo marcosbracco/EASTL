@@ -1343,7 +1343,7 @@ namespace eastl
 	::hashtable(size_type nBucketCount, const H1& h1, const H2& h2, const H& h,
 				const Eq& eq, const EK& ek, const allocator_type& allocator)
 		:   rehash_base<RP, hashtable>(),
-			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, template A::pointer_types>(ek, eq, h1, h2, h),
+			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>(ek, eq, h1, h2, h),
 			mnBucketCount(0),
 			mnElementCount(0),
 			mRehashPolicy(),
@@ -1368,7 +1368,7 @@ namespace eastl
 																	 const H1& h1, const H2& h2, const H& h, 
 																	 const Eq& eq, const EK& ek, const allocator_type& allocator)
 		:   rehash_base<rehash_policy_type, hashtable>(),
-			hash_code_base<key_type, value_type, extract_key_type, key_equal, h1_type, h2_type, h_type, kCacheHashCode, template A::pointer_types>(ek, eq, h1, h2, h),
+			hash_code_base<key_type, value_type, extract_key_type, key_equal, h1_type, h2_type, h_type, kCacheHashCode, A::template pointer_types>(ek, eq, h1, h2, h),
 		  //mnBucketCount(0), // This gets re-assigned below.
 			mnElementCount(0),
 			mRehashPolicy(),
@@ -1410,7 +1410,7 @@ namespace eastl
 			  typename H1, typename H2, typename H, typename RP, bool bC, bool bM, bool bU>
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::hashtable(const this_type& x)
 		:   rehash_base<RP, hashtable>(x),
-			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, template A::pointer_types>(x),
+			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>(x),
 			mnBucketCount(x.mnBucketCount),
 			mnElementCount(x.mnElementCount),
 			mRehashPolicy(x.mRehashPolicy),
@@ -1432,7 +1432,7 @@ namespace eastl
 						while(pNodeSource)
 						{
 							*ppNodeDest = DoAllocateNode(pNodeSource->mValue);
-							copy_code(*ppNodeDest, pNodeSource);
+							copy_code(allocator_type::to_raw(*ppNodeDest), allocator_type::to_raw(pNodeSource));
 							ppNodeDest = &(*ppNodeDest)->mpNext;
 							pNodeSource = pNodeSource->mpNext;
 						}
@@ -1460,7 +1460,7 @@ namespace eastl
 			  typename H1, typename H2, typename H, typename RP, bool bC, bool bM, bool bU>
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::hashtable(this_type&& x)
 		:   rehash_base<RP, hashtable>(x),
-			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, template A::pointer_types>(x),
+			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>(x),
 			mnBucketCount(0),
 			mnElementCount(0),
 			mRehashPolicy(x.mRehashPolicy),
@@ -1475,7 +1475,7 @@ namespace eastl
 			  typename H1, typename H2, typename H, typename RP, bool bC, bool bM, bool bU>
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::hashtable(this_type&& x, const allocator_type& allocator)
 		:   rehash_base<RP, hashtable>(x),
-			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, template A::pointer_types>(x),
+			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>(x),
 			mnBucketCount(0),
 			mnElementCount(0),
 			mRehashPolicy(x.mRehashPolicy),
@@ -1577,7 +1577,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNodeFromKey(const key_type& key)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.allocate<node_type>();
+		node_pointer const pNode = mAllocator.template allocate<node_type>();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -1592,7 +1592,7 @@ namespace eastl
 			catch(...)
 			{
 //				EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.deallocate<node_type>(pNode);
+				mAllocator.template deallocate<node_type>(pNode);
 				throw;
 			}
 		#endif
@@ -1605,7 +1605,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNodeFromKey(key_type&& key)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.allocate<node_type>();
+		node_pointer const pNode = mAllocator.template allocate<node_type>();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -1620,7 +1620,7 @@ namespace eastl
 			catch(...)
 			{
 				// EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.deallocate<node_type>(pNode);
+				mAllocator.template deallocate<node_type>(pNode);
 				throw;
 			}
 		#endif
@@ -1633,7 +1633,7 @@ namespace eastl
 	{
 		pNode->~node_type();
 		// EASTLFree(mAllocator, pNode, sizeof(node_type));
-		mAllocator.deallocate<node_type>(pNode);
+		mAllocator.template deallocate<node_type>(pNode);
 	}
 
 
@@ -1667,10 +1667,10 @@ namespace eastl
 		EASTL_ASSERT(n > 1); // We reserve an mnBucketCount of 1 for the shared gpEmptyBucketArray.
 		EASTL_CT_ASSERT(kHashtableAllocFlagBuckets == 0x00400000); // Currently we expect this to be so, because the allocator has a copy of this enum.
 //		node_type** const pBucketArray = (node_type**)EASTLAllocAlignedFlags(mAllocator, (n + 1) * sizeof(node_type*), EASTL_ALIGN_OF(node_type*), 0, kHashtableAllocFlagBuckets);
-		bucket_array_type const pBucketArray = mAllocator.allocate_array_zeroed<node_pointer>(n + 1, kHashtableAllocFlagBuckets);
+		bucket_array_type const pBucketArray = mAllocator.template allocate_array_zeroed<node_pointer>(n + 1, kHashtableAllocFlagBuckets);
 		//eastl::fill(pBucketArray, pBucketArray + n, (node_type*)NULL);
 		//memset(pBucketArray, 0, n * sizeof(node_pointer));
-		pBucketArray[n] = node_pointer(make_zero_offset_t(), reinterpret_cast<node_type*>((uintptr_t)~0));
+		pBucketArray[n] = mAllocator.template get_hashtable_sentinel<node_type>();
 		return pBucketArray;
 	}
 
@@ -1685,7 +1685,7 @@ namespace eastl
 		// than another but pass a hashtable to another. So we go by the size.
 		if(n > 1)
 			// EASTLFree(mAllocator, pBucketArray, (n + 1) * sizeof(node_type*)); // '+1' because DoAllocateBuckets allocates nBucketCount + 1 buckets in order to have a NULL sentinel at the end.
-			mAllocator.deallocate_array<node_pointer>(pBucketArray, n + 1);
+			mAllocator.template deallocate_array<node_pointer>(pBucketArray, n + 1);
 	}
 
 
@@ -1693,7 +1693,7 @@ namespace eastl
 			  typename H1, typename H2, typename H, typename RP, bool bC, bool bM, bool bU>
 	void hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::swap(this_type& x)
 	{
-		hash_code_base<K, V, EK, Eq, H1, H2, H, bC, template A::pointer_types>::base_swap(x); // hash_code_base has multiple implementations, so we let them handle the swap.
+		hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>::base_swap(x); // hash_code_base has multiple implementations, so we let them handle the swap.
 		eastl::swap(mRehashPolicy, x.mRehashPolicy);
 		EASTL_MACRO_SWAP(bucket_array_type, mpBucketArray, x.mpBucketArray);
 		eastl::swap(mnBucketCount, x.mnBucketCount);
@@ -1884,7 +1884,7 @@ namespace eastl
 		// advantage of the fact that the count will always be zero or one in that case. 
 		for(node_pointer pNode = mpBucketArray[n]; pNode; pNode = pNode->mpNext)
 		{
-			if(compare(k, c, pNode))
+			if(compare(k, c, allocator_type::to_raw(pNode)))
 				++result;
 		}
 		return result;
@@ -1909,7 +1909,7 @@ namespace eastl
 
 			for(; p1; p1 = p1->mpNext)
 			{
-				if(!compare(k, c, p1))
+				if(!compare(k, c, allocator_type::to_raw(p1)))
 					break;
 			}
 
@@ -1946,7 +1946,7 @@ namespace eastl
 
 			for(; p1; p1 = p1->mpNext)
 			{
-				if(!compare(k, c, p1))
+				if(!compare(k, c, allocator_type::to_raw(p1)))
 					break;
 			}
 
@@ -1972,7 +1972,7 @@ namespace eastl
 	{
 		for(; pNode; pNode = pNode->mpNext)
 		{
-			if(compare(k, c, pNode))
+			if(compare(k, c, allocator_type::to_raw(pNode)))
 				return pNode;
 		}
 		return NULL;
@@ -2023,7 +2023,7 @@ namespace eastl
 		{
 			const eastl::pair<bool, uint32_t> bRehash = mRehashPolicy.GetRehashRequired((uint32_t)mnBucketCount, (uint32_t)mnElementCount, (uint32_t)1);
 
-			set_code(pNodeNew, c); // This is a no-op for most hashtables.
+			set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				try
@@ -2035,7 +2035,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT((uintptr_t)mpBucketArray != (uintptr_t)&gpEmptyBucketArray[0]);
+					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2082,7 +2082,7 @@ namespace eastl
 		const hash_code_t c        = get_hash_code(k);
 		const size_type   n        = (size_type)bucket_index(k, c, (uint32_t)mnBucketCount);
 
-		set_code(pNodeNew, c); // This is a no-op for most hashtables.
+		set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 		// To consider: Possibly make this insertion not make equal elements contiguous.
 		// As it stands now, we insert equal values contiguously in the hashtable.
@@ -2094,7 +2094,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT((void**)mpBucketArray != &gpEmptyBucketArray[0]);
+			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2117,7 +2117,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNode(Args&&... args)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.allocate<node_type>();
+		node_pointer const pNode = mAllocator.template allocate<node_type>();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -2132,7 +2132,7 @@ namespace eastl
 			catch(...)
 			{
 //				EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.deallocate<node_type>(pNode);
+				mAllocator.template deallocate<node_type>(pNode);
 				throw;
 			}
 		#endif
@@ -2184,7 +2184,7 @@ namespace eastl
 				#endif
 			}
 
-			set_code(pNodeNew, c); // This is a no-op for most hashtables.
+			set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				try
@@ -2196,7 +2196,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT((uintptr_t)mpBucketArray != (uintptr_t)&gpEmptyBucketArray[0]);
+					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2250,7 +2250,7 @@ namespace eastl
 		else
 			pNodeNew = DoAllocateNode(eastl::move(value));
 
-		set_code(pNodeNew, c); // This is a no-op for most hashtables.
+		set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 		// To consider: Possibly make this insertion not make equal elements contiguous.
 		// As it stands now, we insert equal values contiguously in the hashtable.
@@ -2262,7 +2262,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT((void**)mpBucketArray != &gpEmptyBucketArray[0]);
+			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2297,7 +2297,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNode(value_type&& value)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.allocate<node_type>();
+		node_pointer const pNode = mAllocator.template allocate<node_type>();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -2312,7 +2312,7 @@ namespace eastl
 			catch(...)
 			{
 //				EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.deallocate<node_type>(pNode);
+				mAllocator.template deallocate<node_type>(pNode);
 				throw;
 			}
 		#endif
@@ -2356,7 +2356,7 @@ namespace eastl
 				#endif
 			}
 
-			set_code(pNodeNew, c); // This is a no-op for most hashtables.
+			set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				try
@@ -2368,7 +2368,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT((uintptr_t)mpBucketArray != (uintptr_t)&gpEmptyBucketArray[0]);
+					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2422,7 +2422,7 @@ namespace eastl
 		else
 			pNodeNew = DoAllocateNode(value);
 
-		set_code(pNodeNew, c); // This is a no-op for most hashtables.
+		set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 		// To consider: Possibly make this insertion not make equal elements contiguous.
 		// As it stands now, we insert equal values contiguously in the hashtable.
@@ -2434,7 +2434,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT((void**)mpBucketArray != &gpEmptyBucketArray[0]);
+			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2469,7 +2469,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNode(const value_type& value)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.allocate<node_type>();
+		node_pointer const pNode = mAllocator.template allocate<node_type>();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -2484,7 +2484,7 @@ namespace eastl
 			catch(...)
 			{
 				// EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.deallocate<node_type>(pNode);
+				mAllocator.template deallocate<node_type>(pNode);
 				throw;
 			}
 		#endif
@@ -2498,7 +2498,7 @@ namespace eastl
 	{
 		// We don't wrap this in try/catch because users of this function are expected to do that themselves as needed.
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.allocate<node_type>();
+		node_pointer const pNode = mAllocator.template allocate<node_type>();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 		// Leave pNode->mValue uninitialized.
 		pNode->mpNext = NULL;
@@ -2512,7 +2512,7 @@ namespace eastl
 	{
 		// pNode->mValue is expected to be uninitialized.
 //		EASTLFree(mAllocator, pNode, sizeof(node_type));
-		mAllocator.deallocate<node_type>(pNode);
+		mAllocator.template deallocate<node_type>(pNode);
 	}
 
 
@@ -2531,7 +2531,7 @@ namespace eastl
 			// Allocate the new node before doing the rehash so that we don't
 			// do a rehash if the allocation throws.
 			node_pointer const pNodeNew = DoAllocateNodeFromKey(key);
-			set_code(pNodeNew, c); // This is a no-op for most hashtables.
+			set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				try
@@ -2543,7 +2543,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT((void**)mpBucketArray != &gpEmptyBucketArray[0]);
+					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2577,7 +2577,7 @@ namespace eastl
 		const size_type   n = (size_type)bucket_index(key, c, (uint32_t)mnBucketCount);
 
 		node_pointer const pNodeNew = DoAllocateNodeFromKey(key);
-		set_code(pNodeNew, c); // This is a no-op for most hashtables.
+		set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 		// To consider: Possibly make this insertion not make equal elements contiguous.
 		// As it stands now, we insert equal values contiguously in the hashtable.
@@ -2589,7 +2589,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT((void**)mpBucketArray != &gpEmptyBucketArray[0]);
+			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2620,7 +2620,7 @@ namespace eastl
 			// Allocate the new node before doing the rehash so that we don't
 			// do a rehash if the allocation throws.
 			node_pointer const pNodeNew = DoAllocateNodeFromKey(eastl::move(key));
-			set_code(pNodeNew, c); // This is a no-op for most hashtables.
+			set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				try
@@ -2632,7 +2632,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT((void**)mpBucketArray != &gpEmptyBucketArray[0]);
+					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2665,7 +2665,7 @@ namespace eastl
 		const size_type   n = (size_type)bucket_index(key, c, (uint32_t)mnBucketCount);
 
 		node_pointer const pNodeNew = DoAllocateNodeFromKey(eastl::move(key));
-		set_code(pNodeNew, c); // This is a no-op for most hashtables.
+		set_code(allocator_type::to_raw(pNodeNew), c); // This is a no-op for most hashtables.
 
 		// To consider: Possibly make this insertion not make equal elements contiguous.
 		// As it stands now, we insert equal values contiguously in the hashtable.
@@ -2677,7 +2677,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT((void**)mpBucketArray != &gpEmptyBucketArray[0]);
+			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2978,10 +2978,10 @@ namespace eastl
 
 		node_pointer* pBucketArray = mpBucketArray + n;
 
-		while(*pBucketArray && !compare(k, c, *pBucketArray))
+		while(*pBucketArray && !compare(k, c, allocator_type::to_raw(*pBucketArray)))
 			pBucketArray = &(*pBucketArray)->mpNext;
 
-		while(*pBucketArray && compare(k, c, *pBucketArray))
+		while(*pBucketArray && compare(k, c, allocator_type::to_raw(*pBucketArray)))
 		{
 			node_pointer const pNode = *pBucketArray;
 			*pBucketArray = pNode->mpNext;
@@ -3030,7 +3030,7 @@ namespace eastl
 		mnBucketCount  = 1;
 
 		#ifdef _MSC_VER
-			mpBucketArray = (bucket_array_type)&gpEmptyBucketArray[0];
+			mpBucketArray = mAllocator.template get_empty_hashtable<node_pointer>();
 		#else
 			void* p = &gpEmptyBucketArray[0];
 			memcpy(&mpBucketArray, &p, sizeof(mpBucketArray)); // Other compilers implement strict aliasing and casting is thus unsafe.
@@ -3077,7 +3077,7 @@ namespace eastl
 				{
 					while((pNode = mpBucketArray[i]) != NULL) // Using '!=' disables compiler warnings.
 					{
-						const size_type nNewBucketIndex = (size_type)bucket_index(pNode, (uint32_t)nNewBucketCount);
+						const size_type nNewBucketIndex = (size_type)bucket_index(allocator_type::to_raw(pNode), (uint32_t)nNewBucketCount);
 
 						mpBucketArray[i] = pNode->mpNext;
 						pNode->mpNext    = pBucketArray[nNewBucketIndex];
@@ -3110,10 +3110,10 @@ namespace eastl
 	inline bool hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::validate() const
 	{
 		// Verify our empty bucket array is unmodified.
-		if(gpEmptyBucketArray[0] != NULL)
+		if(mAllocator.template get_empty_hashtable<node_pointer>()[0] != NULL)
 			return false;
 
-		if(gpEmptyBucketArray[1] != (void*)uintptr_t(~0))
+		if(mAllocator.template get_empty_hashtable<node_pointer>()[1] != mAllocator.template get_hashtable_sentinel<node_type>())
 			return false;
 
 		// Verify that we have at least one bucket. Calculations can  
@@ -3123,7 +3123,7 @@ namespace eastl
 
 		// Verify that gpEmptyBucketArray is used correctly.
 		// gpEmptyBucketArray is only used when initially empty.
-		if((void**)mpBucketArray == &gpEmptyBucketArray[0])
+		if(mpBucketArray == mAllocator.template get_empty_hashtable<node_pointer>())
 		{
 			if(mnElementCount) // gpEmptyBucketArray is used only for empty hash tables.
 				return false;

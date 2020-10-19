@@ -524,7 +524,7 @@ namespace eastl
 	inline vector<T, Allocator>::vector(size_type n, const allocator_type& allocator)
 		: base_type(n, allocator)
 	{
-		eastl::uninitialized_default_fill_n(mpBegin.get_raw_ptr(), n);
+		eastl::uninitialized_default_fill_n(allocator_type::to_raw(mpBegin), n);
 		mpEnd = mpBegin + n;
 	}
 
@@ -533,7 +533,7 @@ namespace eastl
 	inline vector<T, Allocator>::vector(size_type n, const value_type& value, const allocator_type& allocator)
 		: base_type(n, allocator)
 	{
-		eastl::uninitialized_fill_n_ptr(mpBegin.get_raw_ptr(), n, value);
+		eastl::uninitialized_fill_n_ptr(allocator_type::to_raw(mpBegin), n, value);
 		mpEnd = mpBegin + n;
 	}
 
@@ -542,7 +542,7 @@ namespace eastl
 	inline vector<T, Allocator>::vector(const this_type& x)
 		: base_type(x.size(), x.internalAllocator())
 	{
-		mpEnd = eastl::uninitialized_copy_ptr(x.mpBegin.get_raw_ptr(), x.mpEnd, mpBegin.get_raw_ptr());
+		mpEnd = eastl::uninitialized_copy_ptr(allocator_type::to_raw(x.mpBegin), x.mpEnd, allocator_type::to_raw(mpBegin));
 	}
 
 
@@ -550,7 +550,7 @@ namespace eastl
 	inline vector<T, Allocator>::vector(const this_type& x, const allocator_type& allocator)
 		: base_type(x.size(), allocator)
 	{
-		mpEnd = eastl::uninitialized_copy_ptr(x.mpBegin.get_raw_ptr(), x.mpEnd, mpBegin.get_raw_ptr());
+		mpEnd = eastl::uninitialized_copy_ptr(allocator_type::to_raw(x.mpBegin), x.mpEnd, allocator_type::to_raw(mpBegin));
 	}
 
 
@@ -597,7 +597,7 @@ namespace eastl
 	inline vector<T, Allocator>::~vector()
 	{
 		// Call destructor for the values. Parent class will free the memory.
-		eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+		eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 	}
 
 
@@ -857,8 +857,8 @@ namespace eastl
 		}
 		else // Else new capacity > size.
 		{
-			auto pNewData = DoRealloc(n, mpBegin.get_raw_ptr(), mpEnd, should_move_tag());
-			eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+			auto pNewData = DoRealloc(n, allocator_type::to_raw(mpBegin), mpEnd, should_move_tag());
+			eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 			DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 			const ptrdiff_t nPrevSize = mpEnd - mpBegin;
@@ -976,7 +976,7 @@ namespace eastl
 			// We allow the user to reference an empty container.
 		#endif
 
-		return *mpBegin.get_raw_ptr();
+		return *allocator_type::to_raw(mpBegin);
 	}
 
 
@@ -991,7 +991,7 @@ namespace eastl
 			// We allow the user to reference an empty container.
 		#endif
 
-		return *mpBegin.get_raw_ptr();
+		return *allocator_type::to_raw(mpBegin);
 	}
 
 
@@ -1330,7 +1330,7 @@ namespace eastl
 	template <typename T, typename Allocator>
 	inline void vector<T, Allocator>::clear() EA_NOEXCEPT
 	{
-		eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+		eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 		mpEnd = mpBegin;
 	}
 
@@ -1395,7 +1395,7 @@ namespace eastl
 	vector<T, Allocator>::DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_copy_tag)
 	{
 		auto p = DoAllocate(n); // p is of type T* but is not constructed. 
-		eastl::uninitialized_copy_ptr(first, last, p.get_raw_ptr()); // copy-constructs p from [first,last).
+		eastl::uninitialized_copy_ptr(first, last, allocator_type::to_raw(p)); // copy-constructs p from [first,last).
 		return p;
 	}
 
@@ -1406,7 +1406,7 @@ namespace eastl
 	vector<T, Allocator>::DoRealloc(size_type n, ForwardIterator first, ForwardIterator last, should_move_tag)
 	{
 		auto p = DoAllocate(n); // p is of type T* but is not constructed. 
-		eastl::uninitialized_move_ptr_if_noexcept(first, last, p.get_raw_ptr()); // move-constructs p from [first,last).
+		eastl::uninitialized_move_ptr_if_noexcept(first, last, allocator_type::to_raw(p)); // move-constructs p from [first,last).
 		return p;
 	}
 
@@ -1420,7 +1420,7 @@ namespace eastl
 		mpEnd      = internalCapacityPtr();
 
 		typedef typename eastl::remove_const<T>::type non_const_value_type; // If T is a const type (e.g. const int) then we need to initialize it as if it were non-const.
-		eastl::uninitialized_fill_n_ptr<value_type, Integer>((non_const_value_type*)mpBegin.get_raw_ptr(), n, value);
+		eastl::uninitialized_fill_n_ptr<value_type, Integer>((non_const_value_type*)allocator_type::to_raw(mpBegin), n, value);
 	}
 
 
@@ -1453,7 +1453,7 @@ namespace eastl
 		mpEnd      = internalCapacityPtr();
 
 		typedef typename eastl::remove_const<T>::type non_const_value_type; // If T is a const type (e.g. const int) then we need to initialize it as if it were non-const.
-		eastl::uninitialized_copy_ptr(first, last, (non_const_value_type*)mpBegin.get_raw_ptr());
+		eastl::uninitialized_copy_ptr(first, last, (non_const_value_type*)allocator_type::to_raw(mpBegin));
 	}
 
 
@@ -1484,13 +1484,13 @@ namespace eastl
 		}
 		else if(n > size_type(mpEnd - mpBegin)) // If n > size ...
 		{
-			eastl::fill(mpBegin.get_raw_ptr(), mpEnd, value);
+			eastl::fill(allocator_type::to_raw(mpBegin), mpEnd, value);
 			eastl::uninitialized_fill_n_ptr(mpEnd, n - size_type(mpEnd - mpBegin), value);
 			mpEnd += n - size_type(mpEnd - mpBegin);
 		}
 		else // else 0 <= n <= size
 		{
-			eastl::fill_n(mpBegin.get_raw_ptr(), n, value);
+			eastl::fill_n(allocator_type::to_raw(mpBegin), n, value);
 			erase(mpBegin + n, mpEnd);
 		}
 	}
@@ -1524,7 +1524,7 @@ namespace eastl
 		if(n > size_type(internalCapacityPtr() - mpBegin)) // If n > capacity ...
 		{
 			auto pNewData = DoRealloc(n, first, last, should_move_or_copy_tag<bMove>());
-			eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+			eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 			DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 			mpBegin    = pNewData;
@@ -1533,14 +1533,14 @@ namespace eastl
 		}
 		else if(n <= size_type(mpEnd - mpBegin)) // If n <= size ...
 		{
-			pointer const pNewEnd = eastl::copy(first, last, mpBegin.get_raw_ptr()); // Since we are copying to mpBegin, we don't have to worry about needing copy_backward or a memmove-like copy (as opposed to memcpy-like copy).
+			pointer const pNewEnd = eastl::copy(first, last, allocator_type::to_raw(mpBegin)); // Since we are copying to mpBegin, we don't have to worry about needing copy_backward or a memmove-like copy (as opposed to memcpy-like copy).
 			eastl::destruct(pNewEnd, mpEnd);
 			mpEnd = pNewEnd;
 		}
 		else // else size < n <= capacity
 		{
 			RandomAccessIterator position = first + (mpEnd - mpBegin);
-			eastl::copy(first, position, mpBegin.get_raw_ptr()); // Since we are copying to mpBegin, we don't have to worry about needing copy_backward or a memmove-like copy (as opposed to memcpy-like copy).
+			eastl::copy(first, position, allocator_type::to_raw(mpBegin)); // Since we are copying to mpBegin, we don't have to worry about needing copy_backward or a memmove-like copy (as opposed to memcpy-like copy).
 			mpEnd = eastl::uninitialized_copy_ptr(position, last, mpEnd);
 		}
 	}
@@ -1620,23 +1620,23 @@ namespace eastl
 					pointer pNewEnd = pNewData;
 					try
 					{
-						pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), destPosition, pNewData.get_raw_ptr());
+						pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), destPosition, allocator_type::to_raw(pNewData));
 						pNewEnd = eastl::uninitialized_copy_ptr(first, last, pNewEnd);
 						pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(destPosition, mpEnd, pNewEnd);
 					}
 					catch(...)
 					{
-						eastl::destruct(pNewData.get_raw_ptr(), pNewEnd);
+						eastl::destruct(allocator_type::to_raw(pNewData), pNewEnd);
 						DoFree(pNewData, nNewSize);
 						throw;
 					}
 				#else
-					pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), destPosition, pNewData.get_raw_ptr());
+					pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), destPosition, allocator_type::to_raw(pNewData));
 					pNewEnd         = eastl::uninitialized_copy_ptr(first, last, pNewEnd);
 					pNewEnd         = eastl::uninitialized_move_ptr_if_noexcept(destPosition, mpEnd, pNewEnd);
 				#endif
 
-				eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+				eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 				DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 				mpBegin    = pNewData;
@@ -1693,23 +1693,23 @@ namespace eastl
 				pointer pNewEnd = pNewData;
 				try
 				{
-					pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), destPosition, pNewData.get_raw_ptr());
+					pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), destPosition, allocator_type::to_raw(pNewData));
 					eastl::uninitialized_fill_n_ptr(pNewEnd, n, value);
 					pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(destPosition, mpEnd, pNewEnd + n);
 				}
 				catch(...)
 				{
-					eastl::destruct(pNewData.get_raw_ptr(), pNewEnd);
+					eastl::destruct(allocator_type::to_raw(pNewData), pNewEnd);
 					DoFree(pNewData, nNewSize);
 					throw;
 				}
 			#else
-				pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), destPosition, pNewData.get_raw_ptr());
+				pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), destPosition, allocator_type::to_raw(pNewData));
 				eastl::uninitialized_fill_n_ptr(pNewEnd, n, value);
 				pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(destPosition, mpEnd, pNewEnd + n);
 			#endif
 
-			eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+			eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 			DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 			mpBegin    = pNewData;
@@ -1733,9 +1733,9 @@ namespace eastl
 	{
 		auto pNewData = DoAllocate(n);
 
-		pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), mpEnd, pNewData.get_raw_ptr());
+		pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), mpEnd, allocator_type::to_raw(pNewData));
 
-		eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+		eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 		DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 		mpBegin    = pNewData;
@@ -1768,22 +1768,22 @@ namespace eastl
 				pointer pNewEnd = pNewData; // Assign pNewEnd a value here in case the copy throws.
 				try
 				{
-					pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), mpEnd, pNewData.get_raw_ptr());
+					pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), mpEnd, allocator_type::to_raw(pNewData));
 				}
 				catch(...)
 				{
-					eastl::destruct(pNewData.get_raw_ptr(), pNewEnd);
+					eastl::destruct(allocator_type::to_raw(pNewData), pNewEnd);
 					DoFree(pNewData, nNewSize);
 					throw;
 				}
 			#else
-				pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), mpEnd, pNewData.get_raw_ptr());
+				pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), mpEnd, allocator_type::to_raw(pNewData));
 			#endif
 
 			eastl::uninitialized_fill_n_ptr(pNewEnd, n, value);
 			pNewEnd += n;
 
-			eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+			eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 			DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 			mpBegin    = pNewData;
@@ -1809,21 +1809,21 @@ namespace eastl
 
 			#if EASTL_EXCEPTIONS_ENABLED
 				pointer pNewEnd = pNewData;  // Assign pNewEnd a value here in case the copy throws.
-				try { pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), mpEnd, pNewData.get_raw_ptr()); }
+				try { pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), mpEnd, allocator_type::to_raw(pNewData)); }
 				catch (...)
 				{
-					eastl::destruct(pNewData.get_raw_ptr(), pNewEnd);
+					eastl::destruct(allocator_type::to_raw(pNewData), pNewEnd);
 					DoFree(pNewData, nNewSize);
 					throw;
 				}
 			#else
-				pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), mpEnd, pNewData.get_raw_ptr());
+				pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), mpEnd, allocator_type::to_raw(pNewData));
 			#endif
 
 			eastl::uninitialized_default_fill_n(pNewEnd, n);
 			pNewEnd += n;
 
-			eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+			eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 			DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 			mpBegin = pNewData;
@@ -1885,25 +1885,25 @@ namespace eastl
 					// call eastl::destruct on the entire range if only the first part of the range was costructed.
 					::new((void*)(pNewData + nPosSize)) value_type(eastl::forward<Args>(args)...);              // Because the old data is potentially being moved rather than copied, we need to move.
 					pNewEnd = NULL;                                                                             // Set to NULL so that in catch we can tell the exception occurred during the next call.
-					pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), destPosition, pNewData.get_raw_ptr());       // the value first, because it might possibly be a reference to the old data being moved.
+					pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), destPosition, allocator_type::to_raw(pNewData));       // the value first, because it might possibly be a reference to the old data being moved.
 					pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(destPosition, mpEnd, ++pNewEnd);
 				}
 				catch(...)
 				{
 					if(pNewEnd)
-						eastl::destruct(pNewData.get_raw_ptr(), pNewEnd);                                         // Destroy what has been constructed so far.
+						eastl::destruct(allocator_type::to_raw(pNewData), pNewEnd);                                         // Destroy what has been constructed so far.
 					else
-						eastl::destruct(pNewData.get_raw_ptr() + nPosSize);                                       // The exception occurred during the first unintialized move, so destroy only the value at nPosSize.
+						eastl::destruct(allocator_type::to_raw(pNewData) + nPosSize);                                       // The exception occurred during the first unintialized move, so destroy only the value at nPosSize.
 					DoFree(pNewData, nNewSize);
 					throw;
 				}
 			#else
 				::new((void*)(pNewData + nPosSize)) value_type(eastl::forward<Args>(args)...);                  // Because the old data is potentially being moved rather than copied, we need to move 
-				pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), destPosition, pNewData.get_raw_ptr());   // the value first, because it might possibly be a reference to the old data being moved.
+				pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), destPosition, allocator_type::to_raw(pNewData));   // the value first, because it might possibly be a reference to the old data being moved.
 				pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(destPosition, mpEnd, ++pNewEnd);            // Question: with exceptions disabled, do we asssume all operations are noexcept and thus there's no need for uninitialized_move_ptr_if_noexcept?
 			#endif
 
-			eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+			eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 			DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 			mpBegin    = pNewData;
@@ -1925,23 +1925,23 @@ namespace eastl
 			pointer pNewEnd = pNewData; // Assign pNewEnd a value here in case the copy throws.
 			try
 			{
-				pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), mpEnd, pNewData.get_raw_ptr());
+				pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), mpEnd, allocator_type::to_raw(pNewData));
 				::new((void*)pNewEnd) value_type(eastl::forward<Args>(args)...);
 				pNewEnd++;
 			}
 			catch(...)
 			{
-				eastl::destruct(pNewData.get_raw_ptr(), pNewEnd);
+				eastl::destruct(allocator_type::to_raw(pNewData), pNewEnd);
 				DoFree(pNewData, nNewSize);
 				throw;
 			}
 		#else
-			pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(mpBegin.get_raw_ptr(), mpEnd, pNewData.get_raw_ptr());
+			pointer pNewEnd = eastl::uninitialized_move_ptr_if_noexcept(allocator_type::to_raw(mpBegin), mpEnd, allocator_type::to_raw(pNewData));
 			::new((void*)pNewEnd) value_type(eastl::forward<Args>(args)...);
 			pNewEnd++;
 		#endif
 
-		eastl::destruct(mpBegin.get_raw_ptr(), mpEnd);
+		eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
 		DoFree(mpBegin, (size_type)(internalCapacityPtr() - mpBegin));
 
 		mpBegin    = pNewData;
