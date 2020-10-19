@@ -64,42 +64,6 @@ namespace eastl
 		const char* get_name() const;
 		void        set_name(const char* pName);
 
-		//mb: allocator interface used by iibmalloc
-		template<class T>
-		struct pointer_types {
-			typedef T* pointer;
-			typedef T* array;
-		};
-
-		template<class T>
-		typename pointer_types<T>::pointer allocate() {
-			return (T*)allocate(sizeof(T), EASTL_ALIGN_OF(T), 0);
-		}
-
-		template<class T>
-		void deallocate(typename pointer_types<T>::pointer p) {
-			deallocate((void*)p, sizeof(T));
-		}
-
-		template<class T>
-		typename pointer_types<T>::array allocate_array(eastl_size_t count, int flags = 0) {
-			return (T*)allocate(count * sizeof(T), EASTL_ALIGN_OF(T), 0, flags);
-		}
-
-		template<class T>
-		typename pointer_types<T>::array allocate_array_zeroed(eastl_size_t count, int flags = 0) {
-			auto ptr = allocate_array<T>(count, flags);
-			memset(ptr, 0, count * sizeof(T));
-			return ptr;
-		}
-
-		template<class T>
-		void deallocate_array(typename pointer_types<T>::array p, eastl_size_t count) {
-			deallocate((void*)p, count * sizeof(T));
-		}
-
-
-
 	protected:
 		#if EASTL_NAME_ENABLED
 			const char* mpName; // Debug name, used to track memory.
