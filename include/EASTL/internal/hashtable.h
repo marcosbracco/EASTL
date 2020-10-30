@@ -256,6 +256,8 @@ namespace eastl
 		typedef hash_node<Value, bCacheHashCode, Ptr>               node_type;
 
 	protected:
+		typedef typename Ptr<node_type>::pointer                    pnode_type;
+
 		template <typename, typename, typename, typename, typename, typename, typename, typename, typename, bool, bool, bool>
 		friend class hashtable;
 
@@ -268,11 +270,11 @@ namespace eastl
 		template <typename V, bool b, template<typename> typename P>
 		friend bool operator!=(const hashtable_iterator_base<V, b, P>&, const hashtable_iterator_base<V, b, P>&);
 
-		typename Ptr<node_type>::pointer  mpNode;      // Current node within current bucket.
-		typename Ptr<node_type>::pointer* mpBucket;    // Current bucket.
+		pnode_type  mpNode;      // Current node within current bucket.
+		pnode_type* mpBucket;    // Current bucket.
 
 	public:
-		hashtable_iterator_base(typename Ptr<node_type>::pointer pNode, typename Ptr<node_type>::pointer* pBucket)
+		hashtable_iterator_base(pnode_type pNode, pnode_type* pBucket)
 			: mpNode(pNode), mpBucket(pBucket) { }
 
 		void increment_bucket()
@@ -320,12 +322,26 @@ namespace eastl
 		typedef ptrdiff_t                                                difference_type;
 		typedef EASTL_ITC_NS::forward_iterator_tag                       iterator_category;
 
-	public:
-		hashtable_iterator(typename Ptr<node_type>::pointer pNode = NULL, typename Ptr<node_type>::pointer* pBucket = NULL)
+	protected:
+		typedef typename base_type::pnode_type                           pnode_type;
+
+		template <typename, typename, typename, typename, typename, typename, typename, typename, typename, bool, bool, bool>
+		friend class hashtable;
+
+		hashtable_iterator(pnode_type pNode, pnode_type* pBucket = NULL)
 			: base_type(pNode, pBucket) { }
 
-		hashtable_iterator(typename Ptr<node_type>::pointer* pBucket)
+		hashtable_iterator(pnode_type* pBucket)
 			: base_type(*pBucket, pBucket) { }
+
+	public:
+		static
+		hashtable_iterator make_unsafe(pnode_type pNode, pnode_type* pBucket) {
+			return {pNode, pBucket};
+		}
+		
+		hashtable_iterator()
+			: base_type(NULL, NULL) { }
 
 		hashtable_iterator(const this_type_non_const& x)
 			: base_type(x.mpNode, x.mpBucket) { }
@@ -342,9 +358,11 @@ namespace eastl
 		hashtable_iterator operator++(int)
 			{ hashtable_iterator temp(*this); base_type::increment(); return temp; }
 
-		const node_type* get_node() const
+		const pnode_type& get_node() const
 			{ return base_type::mpNode; }
 
+		pnode_type* get_bucket() const
+			{ return base_type::mpBucket; }
 	}; // hashtable_iterator
 
 
