@@ -73,6 +73,37 @@ namespace eastl
 	bool operator==(const allocator& a, const allocator& b);
 	bool operator!=(const allocator& a, const allocator& b);
 
+	template<class T>
+	class EASTL_API allocator2 : public allocator
+	{
+	public:
+		EASTL_ALLOCATOR_EXPLICIT allocator2(const char* pName = EASTL_NAME_VAL(EASTL_ALLOCATOR_DEFAULT_NAME))
+			:allocator(pName) {}
+		allocator2(const allocator2& x) = default;
+		allocator2(const allocator2& x, const char* pName) : allocator(x, pName) {}
+
+		allocator2& operator=(const allocator2& x) = default;
+
+		typedef T* array_pointer;
+
+		T* allocate_array(std::size_t count, int flags = 0) {
+			return reinterpret_cast<T*>(allocator::allocate(sizeof(T) * count, flags));
+		}
+
+		T* allocate_array_zeroed(std::size_t count, int flags = 0) {
+			auto arr = allocate_array<T>(count);
+			memset(arr, 0, sizeof(T) * count);
+			return arr;
+		}
+
+		void deallocate_array(T* p, std::size_t count) {
+			allocator::deallocate(p, sizeof(T) * count);
+		}
+
+		static T* to_raw(T* p) {
+			return p;
+		}
+	};
 
 
 	/// dummy_allocator

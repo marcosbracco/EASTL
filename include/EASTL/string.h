@@ -275,7 +275,7 @@ namespace eastl
 	///     and result in exceptions during assignments that theoretically can't
 	///     occur with std containers.
 	///
-	template <typename T, typename Allocator = EASTLAllocatorType>
+	template <typename T, typename Allocator = allocator2<T>>
 	class basic_string
 	{
 	public:
@@ -293,6 +293,9 @@ namespace eastl
 		typedef eastl_size_t                                    size_type;          // See config.h for the definition of eastl_size_t, which defaults to size_t.
 		typedef ptrdiff_t                                       difference_type;
 		typedef Allocator                                       allocator_type;
+	protected:
+		typedef typename allocator_type::array_pointer          heap_array_type;
+	public:
 
 	static const size_type npos     = (size_type)-1;      /// 'npos' means non-valid position or simply non-position.
 
@@ -332,7 +335,7 @@ namespace eastl
 		// The view of memory when the string data is obtained from the allocator.
 		struct HeapLayout
 		{
-			value_type* mpBegin;  // Begin of string.
+			heap_array_type mpBegin;  // Begin of string.
 			size_type mnSize;     // Size of the string. Number of characters currently in the string, not including the trailing '0'
 			size_type mnCapacity; // Capacity of the string. Number of characters string can hold, not including the trailing '0'
 		};
@@ -428,8 +431,8 @@ namespace eastl
 
 			inline size_type GetRemainingCapacity() const EA_NOEXCEPT    { return size_type(CapacityPtr() - EndPtr()); }
 
-			inline value_type* HeapBeginPtr() EA_NOEXCEPT                { return heap.mpBegin; };
-			inline const value_type* HeapBeginPtr() const EA_NOEXCEPT    { return heap.mpBegin; };
+			inline value_type* HeapBeginPtr() EA_NOEXCEPT                { return allocator_type::to_raw(heap.mpBegin); };
+			inline const value_type* HeapBeginPtr() const EA_NOEXCEPT    { return allocator_type::to_raw(heap.mpBegin); };
 
 			inline value_type* SSOBeginPtr() EA_NOEXCEPT                 { return sso.mData; }
 			inline const value_type* SSOBeginPtr() const EA_NOEXCEPT     { return sso.mData; }
@@ -457,7 +460,8 @@ namespace eastl
 			inline value_type* CapacityPtr() EA_NOEXCEPT                 { return IsHeap() ? HeapCapacityPtr() : SSOCapacityPtr(); }
 			inline const value_type* CapacityPtr() const EA_NOEXCEPT     { return IsHeap() ? HeapCapacityPtr() : SSOCapacityPtr(); }
 
-			inline void SetHeapBeginPtr(value_type* pBegin) EA_NOEXCEPT  { heap.mpBegin = pBegin; }
+			inline void SetHeapBeginPtr(heap_array_type pBegin) EA_NOEXCEPT  { heap.mpBegin = pBegin; }
+			inline heap_array_type GetHeapBeginPtr() EA_NOEXCEPT  { return heap.mpBegin; }
 
 			inline void SetHeapCapacity(size_type cap) EA_NOEXCEPT
 			{
@@ -751,8 +755,8 @@ namespace eastl
 
 	protected:
 		// Helper functions for initialization/insertion operations.
-		value_type* DoAllocate(size_type n);
-		void        DoFree(value_type* p, size_type n);
+		heap_array_type DoAllocate(size_type n);
+		void        DoFree(heap_array_type p, size_type n);
 		size_type   GetNewCapacity(size_type currentCapacity);
 		size_type   GetNewCapacity(size_type currentCapacity, size_type minimumGrowSize);
 		void        AllocateSelf();
@@ -1408,21 +1412,22 @@ namespace eastl
 					// A heap based layout wants to reduce its size to within sso capacity
 					// An sso layout wanting to reduce its capacity will not get in here
 					pointer pOldBegin = internalLayout().BeginPtr();
+					heap_array_type pOldHeap = internalLayout().GetHeapBeginPtr();
 					const size_type nOldCap = internalLayout().GetHeapCapacity();
 
 					CharStringUninitializedCopy(pOldBegin, pOldBegin + n, internalLayout().SSOBeginPtr());
 					internalLayout().SetSSOSize(n);
 					*internalLayout().SSOEndPtr() = 0;
 
-					DoFree(pOldBegin, nOldCap + 1);
+					DoFree(pOldHeap, nOldCap + 1);
 
 					return;
 				}
 
-				pointer pNewBegin = DoAllocate(n + 1); // We need the + 1 to accomodate the trailing 0.
+				heap_array_type pNewBegin = DoAllocate(n + 1); // We need the + 1 to accomodate the trailing 0.
 				size_type nSavedSize = internalLayout().GetSize(); // save the size in case we transition from sso->heap
 
-				pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), internalLayout().EndPtr(), pNewBegin);
+				pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), internalLayout().EndPtr(), allocator_type::to_raw(pNewBegin));
 				*pNewEnd = 0;
 
 				DeallocateSelf();
@@ -1479,7 +1484,7 @@ namespace eastl
 		if (internalLayout().IsSSO())
 		{
 			const size_type n = internalLayout().GetSize() + 1; // +1' so that we have room for the terminating 0.
-			pDetached = DoAllocate(n);
+			pDetached = allocator_type::to_raw(DoAllocate(n));
 			pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), internalLayout().EndPtr(), pDetached);
 			*pNewEnd = 0;
 		}
@@ -1718,9 +1723,9 @@ namespace eastl
 			{
 				const size_type nLength = GetNewCapacity(nCapacity, nNewSize - nCapacity);
 
-				pointer pNewBegin = DoAllocate(nLength + 1);
+				heap_array_type pNewBegin = DoAllocate(nLength + 1);
 
-				pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), internalLayout().EndPtr(), pNewBegin);
+				pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), internalLayout().EndPtr(), allocator_type::to_raw(pNewBegin));
 				pNewEnd         = CharStringUninitializedCopy(pBegin,  pEnd,  pNewEnd);
 			   *pNewEnd         = 0;
 
@@ -2185,9 +2190,9 @@ namespace eastl
 				const size_type nOldCap  = capacity();
 				const size_type nLength  = GetNewCapacity(nOldCap, (nOldSize + n) - nOldCap);
 
-				iterator pNewBegin = DoAllocate(nLength + 1);
+				heap_array_type pNewBegin = DoAllocate(nLength + 1);
 
-				iterator pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), p, pNewBegin);
+				iterator pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), p, allocator_type::to_raw(pNewBegin));
 				pNewEnd          = CharStringUninitializedFillN(pNewEnd, n, c);
 				pNewEnd          = CharStringUninitializedCopy(p, internalLayout().EndPtr(), pNewEnd);
 			   *pNewEnd          = 0;
@@ -2293,9 +2298,9 @@ namespace eastl
 				else
 					nLength = GetNewCapacity(nOldCap, (nOldSize + n) - nOldCap);
 
-				pointer pNewBegin = DoAllocate(nLength + 1);
+				heap_array_type pNewBegin = DoAllocate(nLength + 1);
 
-				pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), p, pNewBegin);
+				pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), p, allocator_type::to_raw(pNewBegin));
 				pNewEnd         = CharStringUninitializedCopy(pBegin, pEnd, pNewEnd);
 				pNewEnd         = CharStringUninitializedCopy(p, internalLayout().EndPtr(), pNewEnd);
 			   *pNewEnd         = 0;
@@ -2572,9 +2577,9 @@ namespace eastl
 				const size_type nOldCap      = capacity();
 				const size_type nNewCapacity = GetNewCapacity(nOldCap, (nOldSize + (nLength2 - nLength1)) - nOldCap);
 
-				pointer pNewBegin = DoAllocate(nNewCapacity + 1);
+				heap_array_type pNewBegin = DoAllocate(nNewCapacity + 1);
 
-				pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), pBegin1, pNewBegin);
+				pointer pNewEnd = CharStringUninitializedCopy(internalLayout().BeginPtr(), pBegin1, allocator_type::to_raw(pNewBegin));
 				pNewEnd         = CharStringUninitializedCopy(pBegin2, pEnd2,   pNewEnd);
 				pNewEnd         = CharStringUninitializedCopy(pEnd1,   internalLayout().EndPtr(),   pNewEnd);
 			   *pNewEnd         = 0;
@@ -3208,9 +3213,9 @@ namespace eastl
 			const size_type nOldCap  = capacity();
 			const size_type nLength = GetNewCapacity(nOldCap, 1);
 
-			iterator pNewBegin = DoAllocate(nLength + 1);
+			heap_array_type pNewBegin = DoAllocate(nLength + 1);
 
-			pNewPosition = CharStringUninitializedCopy(internalLayout().BeginPtr(), p, pNewBegin);
+			pNewPosition = CharStringUninitializedCopy(internalLayout().BeginPtr(), p, allocator_type::to_raw(pNewBegin));
 		   *pNewPosition = c;
 
 			iterator pNewEnd = pNewPosition + 1;
@@ -3266,18 +3271,20 @@ namespace eastl
 
 
 	template <typename T, typename Allocator>
-	inline typename basic_string<T, Allocator>::value_type*
+	inline typename basic_string<T, Allocator>::heap_array_type
 	basic_string<T, Allocator>::DoAllocate(size_type n)
 	{
-		return (value_type*)EASTLAlloc(get_allocator(), n * sizeof(value_type));
+		// return (value_type*)EASTLAlloc(get_allocator(), n * sizeof(value_type));
+		return get_allocator().allocate_array(n);
 	}
 
 
 	template <typename T, typename Allocator>
-	inline void basic_string<T, Allocator>::DoFree(value_type* p, size_type n)
+	inline void basic_string<T, Allocator>::DoFree(heap_array_type p, size_type n)
 	{
 		if(p)
-			EASTLFree(get_allocator(), p, n * sizeof(value_type));
+			// EASTLFree(get_allocator(), p, n * sizeof(value_type));
+			get_allocator().deallocate_array(p, n);
 	}
 
 
@@ -3329,7 +3336,7 @@ namespace eastl
 
 		if(n > SSOLayout::SSO_CAPACITY)
 		{
-			pointer pBegin = DoAllocate(n + 1);
+			heap_array_type pBegin = DoAllocate(n + 1);
 			internalLayout().SetHeapBeginPtr(pBegin);
 			internalLayout().SetHeapCapacity(n);
 			internalLayout().SetHeapSize(n);
@@ -3344,7 +3351,7 @@ namespace eastl
 	{
 		if(internalLayout().IsHeap())
 		{
-			DoFree(internalLayout().BeginPtr(), internalLayout().GetHeapCapacity() + 1);
+			DoFree(internalLayout().GetHeapBeginPtr(), internalLayout().GetHeapCapacity() + 1);
 		}
 	}
 
@@ -3919,10 +3926,10 @@ namespace eastl
 	///
 	template <typename T> struct hash;
 
-	template <>
-	struct hash<string>
+	template <typename Allocator>
+	struct hash<basic_string<char, Allocator>>
 	{
-		size_t operator()(const string& x) const
+		size_t operator()(const basic_string<char, Allocator>& x) const
 		{
 			const unsigned char* p = (const unsigned char*)x.c_str(); // To consider: limit p to at most 256 chars.
 			unsigned int c, result = 2166136261U; // We implement an FNV-like string hash.
@@ -3947,10 +3954,10 @@ namespace eastl
 		};
 	#endif
 
-	template <>
-	struct hash<string16>
+	template <typename Allocator>
+	struct hash<basic_string<char16_t, Allocator>>
 	{
-		size_t operator()(const string16& x) const
+		size_t operator()(const basic_string<char16_t, Allocator>& x) const
 		{
 			const char16_t* p = x.c_str();
 			unsigned int c, result = 2166136261U;
@@ -3960,10 +3967,10 @@ namespace eastl
 		}
 	};
 
-	template <>
-	struct hash<string32>
+	template <typename Allocator>
+	struct hash<basic_string<char32_t, Allocator>>
 	{
-		size_t operator()(const string32& x) const
+		size_t operator()(const basic_string<char32_t, Allocator>& x) const
 		{
 			const char32_t* p = x.c_str();
 			unsigned int c, result = 2166136261U;
@@ -3974,10 +3981,10 @@ namespace eastl
 	};
 
 	#if defined(EA_WCHAR_UNIQUE) && EA_WCHAR_UNIQUE
-		template <>
-		struct hash<wstring>
+		template <typename Allocator>
+		struct hash<basic_string<wchar_t, Allocator>>
 		{
-			size_t operator()(const wstring& x) const
+			size_t operator()(const basic_string<wchar_t, Allocator>& x) const
 			{
 				const wchar_t* p = x.c_str();
 				unsigned int c, result = 2166136261U;
