@@ -103,34 +103,34 @@ namespace eastl
 	/// store a hash code in the node to speed up hash calculations 
 	/// and comparisons in some cases.
 	/// 
-	template <typename Value, bool bCacheHashCode, template<typename> typename Ptr>
+	template <typename Value, bool bCacheHashCode, typename Allocator>
 	struct hash_node;
 
 	EA_DISABLE_VC_WARNING(4625 4626) // "copy constructor / assignment operator could not be generated because a base class copy constructor is inaccessible or deleted"
 	#ifdef EA_COMPILER_MSVC_2015
 		EA_DISABLE_VC_WARNING(5026) // disable warning: "move constructor was implicitly defined as deleted"
 	#endif
-		template <typename Value, template<typename> typename Ptr>
-		struct hash_node<Value, true, Ptr>
+		template <typename Value, typename Allocator>
+		struct hash_node<Value, true, Allocator>
 		{
 			hash_node() = default;
 			hash_node(const hash_node&) = default;
 			hash_node(hash_node&&) = default;
 
 			Value        mValue;
-			typename Ptr<hash_node>::pointer mpNext;
+			typename Allocator::template bind_node<hash_node>::pointer mpNext;
 			eastl_size_t mnHashCode;      // See config.h for the definition of eastl_size_t, which defaults to size_t.
 		} EASTL_MAY_ALIAS;
 
-		template <typename Value, template<typename> typename Ptr>
-		struct hash_node<Value, false, Ptr>
+		template <typename Value, typename Allocator>
+		struct hash_node<Value, false, Allocator>
 		{
 			hash_node() = default;
 			hash_node(const hash_node&) = default;
 			hash_node(hash_node&&) = default;
 
 		    Value      mValue;
-			typename Ptr<hash_node>::pointer mpNext;
+			typename Allocator::template bind_node<hash_node>::pointer mpNext;
 		} EASTL_MAY_ALIAS;
 
 	#ifdef EA_COMPILER_MSVC_2015
@@ -179,14 +179,15 @@ namespace eastl
 	/// We define a base class here because it is shared by both const and
 	/// non-const iterators.
 	///
-	template <typename Value, bool bCacheHashCode, template<typename> typename Ptr>
+	template <typename Value, bool bCacheHashCode, typename Allocator>
 	struct node_iterator_base
 	{
-		typedef hash_node<Value, bCacheHashCode, Ptr> node_type;
+		typedef hash_node<Value, bCacheHashCode, Allocator> node_type;
+		typedef typename Allocator::template bind_node<node_type>::pointer pointer_type;
 
-		typename Ptr<node_type>::pointer mpNode;
+		pointer_type mpNode;
 
-		node_iterator_base(typename Ptr<node_type>::pointer pNode)
+		node_iterator_base(pointer_type pNode)
 			: mpNode(pNode) { }
 
 		void increment()
@@ -202,12 +203,12 @@ namespace eastl
 	/// The bConst parameter defines if the iterator is a const_iterator
 	/// or an iterator.
 	///
-	template <typename Value, bool bConst, bool bCacheHashCode, template<typename> typename Ptr>
-	struct node_iterator : public node_iterator_base<Value, bCacheHashCode, Ptr>
+	template <typename Value, bool bConst, bool bCacheHashCode, typename Allocator>
+	struct node_iterator : public node_iterator_base<Value, bCacheHashCode, Allocator>
 	{
 	public:
-		typedef node_iterator_base<Value, bCacheHashCode, Ptr>           base_type;
-		typedef node_iterator<Value, bConst, bCacheHashCode, Ptr>        this_type;
+		typedef node_iterator_base<Value, bCacheHashCode, Allocator>     base_type;
+		typedef node_iterator<Value, bConst, bCacheHashCode, Allocator>  this_type;
 		typedef typename base_type::node_type                            node_type;
 		typedef Value                                                    value_type;
 		typedef typename type_select<bConst, const Value*, Value*>::type pointer;
@@ -216,10 +217,10 @@ namespace eastl
 		typedef EASTL_ITC_NS::forward_iterator_tag                       iterator_category;
 
 	public:
-		explicit node_iterator(typename Ptr<node_type>::pointer pNode = NULL)
+		explicit node_iterator(typename base_type::pointer_type pNode = NULL)
 			: base_type(pNode) { }
 
-		node_iterator(const node_iterator<Value, true, bCacheHashCode, Ptr>& x)
+		node_iterator(const node_iterator<Value, true, bCacheHashCode, Allocator>& x)
 			: base_type(x.mpNode) { }
 
 		reference operator*() const
@@ -248,33 +249,33 @@ namespace eastl
 	/// We define a base class here because it is shared by both const and
 	/// non-const iterators.
 	///
-	template <typename Value, bool bCacheHashCode, template<typename> typename Ptr>
+	template <typename Value, bool bCacheHashCode, typename Allocator>
 	struct hashtable_iterator_base
 	{
 	public:
-		typedef hashtable_iterator_base<Value, bCacheHashCode, Ptr> this_type;
-		typedef hash_node<Value, bCacheHashCode, Ptr>               node_type;
+		typedef hashtable_iterator_base<Value, bCacheHashCode, Allocator> this_type;
+		typedef hash_node<Value, bCacheHashCode, Allocator>               node_type;
+		typedef typename Allocator::template bind_node<node_type>::pointer   pointer_type;
 
 	protected:
-		typedef typename Ptr<node_type>::pointer                    pnode_type;
 
 		template <typename, typename, typename, typename, typename, typename, typename, typename, typename, bool, bool, bool>
 		friend class hashtable;
 
-		template <typename, bool, bool, template<typename> typename>
+		template <typename, bool, bool, typename>
 		friend struct hashtable_iterator;
 
-		template <typename V, bool b, template<typename> typename P>
-		friend bool operator==(const hashtable_iterator_base<V, b, P>&, const hashtable_iterator_base<V, b, P>&);
+		template <typename V, bool b, typename A>
+		friend bool operator==(const hashtable_iterator_base<V, b, A>&, const hashtable_iterator_base<V, b, A>&);
 
-		template <typename V, bool b, template<typename> typename P>
-		friend bool operator!=(const hashtable_iterator_base<V, b, P>&, const hashtable_iterator_base<V, b, P>&);
+		template <typename V, bool b, typename A>
+		friend bool operator!=(const hashtable_iterator_base<V, b, A>&, const hashtable_iterator_base<V, b, A>&);
 
-		pnode_type  mpNode;      // Current node within current bucket.
-		pnode_type* mpBucket;    // Current bucket.
+		pointer_type  mpNode;      // Current node within current bucket.
+		pointer_type* mpBucket;    // Current bucket.
 
 	public:
-		hashtable_iterator_base(pnode_type pNode, pnode_type* pBucket)
+		hashtable_iterator_base(pointer_type pNode, pointer_type* pBucket)
 			: mpNode(pNode), mpBucket(pBucket) { }
 
 		void increment_bucket()
@@ -308,13 +309,13 @@ namespace eastl
 	/// The bConst parameter defines if the iterator is a const_iterator
 	/// or an iterator.
 	///
-	template <typename Value, bool bConst, bool bCacheHashCode, template<typename> typename Ptr>
-	struct hashtable_iterator : public hashtable_iterator_base<Value, bCacheHashCode, Ptr>
+	template <typename Value, bool bConst, bool bCacheHashCode, typename Allocator>
+	struct hashtable_iterator : public hashtable_iterator_base<Value, bCacheHashCode, Allocator>
 	{
 	public:
-		typedef hashtable_iterator_base<Value, bCacheHashCode, Ptr>      base_type;
-		typedef hashtable_iterator<Value, bConst, bCacheHashCode, Ptr>   this_type;
-		typedef hashtable_iterator<Value, false, bCacheHashCode, Ptr>    this_type_non_const;
+		typedef hashtable_iterator_base<Value, bCacheHashCode, Allocator>      base_type;
+		typedef hashtable_iterator<Value, bConst, bCacheHashCode, Allocator>   this_type;
+		typedef hashtable_iterator<Value, false, bCacheHashCode, Allocator>    this_type_non_const;
 		typedef typename base_type::node_type                            node_type;
 		typedef Value                                                    value_type;
 		typedef typename type_select<bConst, const Value*, Value*>::type pointer;
@@ -323,20 +324,20 @@ namespace eastl
 		typedef EASTL_ITC_NS::forward_iterator_tag                       iterator_category;
 
 	protected:
-		typedef typename base_type::pnode_type                           pnode_type;
+		typedef typename base_type::pointer_type                           pointer_type;
 
 		template <typename, typename, typename, typename, typename, typename, typename, typename, typename, bool, bool, bool>
 		friend class hashtable;
 
-		hashtable_iterator(pnode_type pNode, pnode_type* pBucket = NULL)
+		hashtable_iterator(const pointer_type& pNode, pointer_type* pBucket = NULL)
 			: base_type(pNode, pBucket) { }
 
-		hashtable_iterator(pnode_type* pBucket)
+		hashtable_iterator(pointer_type* pBucket)
 			: base_type(*pBucket, pBucket) { }
 
 	public:
 		static
-		hashtable_iterator make_unsafe(pnode_type pNode, pnode_type* pBucket) {
+		hashtable_iterator make_unsafe(const pointer_type& pNode, pointer_type* pBucket) {
 			return {pNode, pBucket};
 		}
 		
@@ -358,10 +359,10 @@ namespace eastl
 		hashtable_iterator operator++(int)
 			{ hashtable_iterator temp(*this); base_type::increment(); return temp; }
 
-		const pnode_type& get_node() const
+		const pointer_type& get_node() const
 			{ return base_type::mpNode; }
 
-		pnode_type* get_bucket() const
+		pointer_type* get_bucket() const
 			{ return base_type::mpBucket; }
 	}; // hashtable_iterator
 
@@ -529,7 +530,7 @@ namespace eastl
 	/// objects here, for convenience.
 	///
 	template <typename Key, typename Value, typename ExtractKey, typename Equal, 
-			  typename H1, typename H2, typename H, bool bCacheHashCode, template<typename> typename Ptr>
+			  typename H1, typename H2, typename H, bool bCacheHashCode, typename Allocator>
 	struct hash_code_base;
 
 
@@ -538,8 +539,8 @@ namespace eastl
 	/// Specialization: ranged hash function, no caching hash codes. 
 	/// H1 and H2 are provided but ignored. We define a dummy hash code type.
 	///
-	template <typename Key, typename Value, typename ExtractKey, typename Equal, typename H1, typename H2, typename H, template<typename> typename Ptr>
-	struct hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, H, false, Ptr>
+	template <typename Key, typename Value, typename ExtractKey, typename Equal, typename H1, typename H2, typename H, typename Allocator>
+	struct hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, H, false, Allocator>
 	{
 	protected:
 		ExtractKey  mExtractKey;    // To do: Make this member go away entirely, as it never has any data.
@@ -578,16 +579,16 @@ namespace eastl
 		bucket_index_t bucket_index(const Key& key, hash_code_t, uint32_t nBucketCount) const
 			{ return (bucket_index_t)mRangedHash(key, nBucketCount); }
 
-		bucket_index_t bucket_index(const hash_node<Value, false, Ptr>* pNode, uint32_t nBucketCount) const
+		bucket_index_t bucket_index(const hash_node<Value, false, Allocator>* pNode, uint32_t nBucketCount) const
 			{ return (bucket_index_t)mRangedHash(mExtractKey(pNode->mValue), nBucketCount); }
 
-		bool compare(const Key& key, hash_code_t, hash_node<Value, false, Ptr>* pNode) const
+		bool compare(const Key& key, hash_code_t, hash_node<Value, false, Allocator>* pNode) const
 			{ return mEqual(key, mExtractKey(pNode->mValue)); }
 
-		void copy_code(hash_node<Value, false, Ptr>*, const hash_node<Value, false, Ptr>*) const
+		void copy_code(hash_node<Value, false, Allocator>*, const hash_node<Value, false, Allocator>*) const
 			{ } // Nothing to do.
 
-		void set_code(hash_node<Value, false, Ptr>* pDest, hash_code_t c) const
+		void set_code(hash_node<Value, false, Allocator>* pDest, hash_code_t c) const
 		{
 			EA_UNUSED(pDest);
 			EA_UNUSED(c);
@@ -614,8 +615,8 @@ namespace eastl
 	/// This combination is meaningless, so we provide only a declaration
 	/// and no definition.
 	///
-	template <typename Key, typename Value, typename ExtractKey, typename Equal, typename H1, typename H2, typename H, template<typename> typename Ptr>
-	struct hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, H, true, Ptr>;
+	template <typename Key, typename Value, typename ExtractKey, typename Equal, typename H1, typename H2, typename H, typename Allocator>
+	struct hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, H, true, Allocator>;
 
 
 
@@ -625,8 +626,8 @@ namespace eastl
 	/// no caching of hash codes. H is provided but ignored. 
 	/// Provides typedef and accessor required by TR1.
 	///
-	template <typename Key, typename Value, typename ExtractKey, typename Equal, typename H1, typename H2, template<typename> typename Ptr>
-	struct hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, default_ranged_hash, false, Ptr>
+	template <typename Key, typename Value, typename ExtractKey, typename Equal, typename H1, typename H2, typename Allocator>
+	struct hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, default_ranged_hash, false, Allocator>
 	{
 	protected:
 		ExtractKey  mExtractKey;
@@ -652,7 +653,7 @@ namespace eastl
 	protected:
 		typedef size_t hash_code_t;
 		typedef uint32_t bucket_index_t;
-		typedef hash_node<Value, false, Ptr> node_type;
+		typedef hash_node<Value, false, Allocator> node_type;
 
 		hash_code_base(const ExtractKey& ex, const Equal& eq, const H1& h1, const H2& h2, const default_ranged_hash&)
 			: mExtractKey(ex), mEqual(eq), m_h1(h1), m_h2(h2) { }
@@ -696,8 +697,8 @@ namespace eastl
 	/// caching hash codes. H is provided but ignored. 
 	/// Provides typedef and accessor required by TR1.
 	///
-	template <typename Key, typename Value, typename ExtractKey, typename Equal, typename H1, typename H2, template<typename> typename Ptr>
-	struct hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, default_ranged_hash, true, Ptr>
+	template <typename Key, typename Value, typename ExtractKey, typename Equal, typename H1, typename H2, typename Allocator>
+	struct hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, default_ranged_hash, true, Allocator>
 	{
 	protected:
 		ExtractKey  mExtractKey;
@@ -723,7 +724,7 @@ namespace eastl
 	protected:
 		typedef uint32_t hash_code_t;
 		typedef uint32_t bucket_index_t;
-		typedef hash_node<Value, true, Ptr> node_type;
+		typedef hash_node<Value, true, Allocator> node_type;
 
 		hash_code_base(const ExtractKey& ex, const Equal& eq, const H1& h1, const H2& h2, const default_ranged_hash&)
 			: mExtractKey(ex), mEqual(eq), m_h1(h1), m_h2(h2) { }
@@ -844,27 +845,27 @@ namespace eastl
 			  typename RehashPolicy, bool bCacheHashCode, bool bMutableIterators, bool bUniqueKeys>
 	class hashtable
 		:   public rehash_base<RehashPolicy, hashtable<Key, Value, Allocator, ExtractKey, Equal, H1, H2, H, RehashPolicy, bCacheHashCode, bMutableIterators, bUniqueKeys> >,
-			public hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, H, bCacheHashCode, Allocator::template pointer_types>
+			public hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, H, bCacheHashCode, Allocator>
 	{
 	public:
 		typedef Key                                                                                 key_type;
 		typedef Value                                                                               value_type;
 		typedef typename ExtractKey::result_type                                                    mapped_type;
-		typedef hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, H, bCacheHashCode, Allocator::template pointer_types>            hash_code_base_type;
+		typedef hash_code_base<Key, Value, ExtractKey, Equal, H1, H2, H, bCacheHashCode, Allocator> hash_code_base_type;
 		typedef typename hash_code_base_type::hash_code_t                                           hash_code_t;
-		typedef Allocator                                                                           allocator_type;
 		typedef Equal                                                                               key_equal;
 		typedef ptrdiff_t                                                                           difference_type;
 		typedef eastl_size_t                                                                        size_type;     // See config.h for the definition of eastl_size_t, which defaults to size_t.
 		typedef value_type&                                                                         reference;
 		typedef const value_type&                                                                   const_reference;
-		typedef node_iterator<value_type, !bMutableIterators, bCacheHashCode, Allocator::template pointer_types>                       local_iterator;
-		typedef node_iterator<value_type, true,               bCacheHashCode, Allocator::template pointer_types>                       const_local_iterator;
-		typedef hashtable_iterator<value_type, !bMutableIterators, bCacheHashCode, Allocator::template pointer_types>                  iterator;
-		typedef hashtable_iterator<value_type, true,               bCacheHashCode, Allocator::template pointer_types>                  const_iterator;
-		typedef hash_node<value_type, bCacheHashCode, Allocator::template pointer_types>                                               node_type;
-		typedef typename Allocator::template pointer_types<node_type>::pointer                               node_pointer;
-		typedef typename Allocator::template pointer_types<node_pointer>::array                              bucket_array_type;
+		typedef node_iterator<value_type, !bMutableIterators, bCacheHashCode, Allocator>            local_iterator;
+		typedef node_iterator<value_type, true,               bCacheHashCode, Allocator>            const_local_iterator;
+		typedef hashtable_iterator<value_type, !bMutableIterators, bCacheHashCode, Allocator>       iterator;
+		typedef hashtable_iterator<value_type, true,               bCacheHashCode, Allocator>       const_iterator;
+		typedef hash_node<value_type, bCacheHashCode, Allocator>                                    node_type;
+		typedef typename Allocator::template bind_node<node_type>                                   allocator_type;
+		typedef typename allocator_type::pointer                                                    node_pointer;
+		typedef typename allocator_type::array                                                      bucket_array_type;
 		typedef typename type_select<bUniqueKeys, eastl::pair<iterator, bool>, iterator>::type      insert_return_type;
 		typedef hashtable<Key, Value, Allocator, ExtractKey, Equal, H1, H2, H, 
 							RehashPolicy, bCacheHashCode, bMutableIterators, bUniqueKeys>           this_type;
@@ -1323,12 +1324,12 @@ namespace eastl
 	// node_iterator_base
 	///////////////////////////////////////////////////////////////////////
 
-	template <typename Value, bool bCacheHashCode, template<typename> typename Ptr>
-	inline bool operator==(const node_iterator_base<Value, bCacheHashCode, Ptr>& a, const node_iterator_base<Value, bCacheHashCode, Ptr>& b)
+	template <typename Value, bool bCacheHashCode, typename Allocator>
+	inline bool operator==(const node_iterator_base<Value, bCacheHashCode, Allocator>& a, const node_iterator_base<Value, bCacheHashCode, Allocator>& b)
 		{ return a.mpNode == b.mpNode; }
 
-	template <typename Value, bool bCacheHashCode, template<typename> typename Ptr>
-	inline bool operator!=(const node_iterator_base<Value, bCacheHashCode, Ptr>& a, const node_iterator_base<Value, bCacheHashCode, Ptr>& b)
+	template <typename Value, bool bCacheHashCode, typename Allocator>
+	inline bool operator!=(const node_iterator_base<Value, bCacheHashCode, Allocator>& a, const node_iterator_base<Value, bCacheHashCode, Allocator>& b)
 		{ return a.mpNode != b.mpNode; }
 
 
@@ -1338,12 +1339,12 @@ namespace eastl
 	// hashtable_iterator_base
 	///////////////////////////////////////////////////////////////////////
 
-	template <typename Value, bool bCacheHashCode, template<typename> typename Ptr>
-	inline bool operator==(const hashtable_iterator_base<Value, bCacheHashCode, Ptr>& a, const hashtable_iterator_base<Value, bCacheHashCode, Ptr>& b)
+	template <typename Value, bool bCacheHashCode, typename Allocator>
+	inline bool operator==(const hashtable_iterator_base<Value, bCacheHashCode, Allocator>& a, const hashtable_iterator_base<Value, bCacheHashCode, Allocator>& b)
 		{ return a.mpNode == b.mpNode; }
 
-	template <typename Value, bool bCacheHashCode, template<typename> typename Ptr>
-	inline bool operator!=(const hashtable_iterator_base<Value, bCacheHashCode, Ptr>& a, const hashtable_iterator_base<Value, bCacheHashCode, Ptr>& b)
+	template <typename Value, bool bCacheHashCode, typename Allocator>
+	inline bool operator!=(const hashtable_iterator_base<Value, bCacheHashCode, Allocator>& a, const hashtable_iterator_base<Value, bCacheHashCode, Allocator>& b)
 		{ return a.mpNode != b.mpNode; }
 
 
@@ -1359,7 +1360,7 @@ namespace eastl
 	::hashtable(size_type nBucketCount, const H1& h1, const H2& h2, const H& h,
 				const Eq& eq, const EK& ek, const allocator_type& allocator)
 		:   rehash_base<RP, hashtable>(),
-			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>(ek, eq, h1, h2, h),
+			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A>(ek, eq, h1, h2, h),
 			mnBucketCount(0),
 			mnElementCount(0),
 			mRehashPolicy(),
@@ -1384,7 +1385,7 @@ namespace eastl
 																	 const H1& h1, const H2& h2, const H& h, 
 																	 const Eq& eq, const EK& ek, const allocator_type& allocator)
 		:   rehash_base<rehash_policy_type, hashtable>(),
-			hash_code_base<key_type, value_type, extract_key_type, key_equal, h1_type, h2_type, h_type, kCacheHashCode, A::template pointer_types>(ek, eq, h1, h2, h),
+			hash_code_base<key_type, value_type, extract_key_type, key_equal, h1_type, h2_type, h_type, kCacheHashCode, A>(ek, eq, h1, h2, h),
 		  //mnBucketCount(0), // This gets re-assigned below.
 			mnElementCount(0),
 			mRehashPolicy(),
@@ -1426,7 +1427,7 @@ namespace eastl
 			  typename H1, typename H2, typename H, typename RP, bool bC, bool bM, bool bU>
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::hashtable(const this_type& x)
 		:   rehash_base<RP, hashtable>(x),
-			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>(x),
+			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A>(x),
 			mnBucketCount(x.mnBucketCount),
 			mnElementCount(x.mnElementCount),
 			mRehashPolicy(x.mRehashPolicy),
@@ -1476,7 +1477,7 @@ namespace eastl
 			  typename H1, typename H2, typename H, typename RP, bool bC, bool bM, bool bU>
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::hashtable(this_type&& x)
 		:   rehash_base<RP, hashtable>(x),
-			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>(x),
+			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A>(x),
 			mnBucketCount(0),
 			mnElementCount(0),
 			mRehashPolicy(x.mRehashPolicy),
@@ -1491,7 +1492,7 @@ namespace eastl
 			  typename H1, typename H2, typename H, typename RP, bool bC, bool bM, bool bU>
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::hashtable(this_type&& x, const allocator_type& allocator)
 		:   rehash_base<RP, hashtable>(x),
-			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>(x),
+			hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A>(x),
 			mnBucketCount(0),
 			mnElementCount(0),
 			mRehashPolicy(x.mRehashPolicy),
@@ -1593,7 +1594,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNodeFromKey(const key_type& key)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.template allocate<node_type>();
+		node_pointer const pNode = mAllocator.allocate_node();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -1608,7 +1609,7 @@ namespace eastl
 			catch(...)
 			{
 //				EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.template deallocate<node_type>(pNode);
+				mAllocator.deallocate_node(pNode);
 				throw;
 			}
 		#endif
@@ -1621,7 +1622,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNodeFromKey(key_type&& key)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.template allocate<node_type>();
+		node_pointer const pNode = mAllocator.allocate_node();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -1636,7 +1637,7 @@ namespace eastl
 			catch(...)
 			{
 				// EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.template deallocate<node_type>(pNode);
+				mAllocator.deallocate_node(pNode);
 				throw;
 			}
 		#endif
@@ -1649,7 +1650,7 @@ namespace eastl
 	{
 		pNode->~node_type();
 		// EASTLFree(mAllocator, pNode, sizeof(node_type));
-		mAllocator.template deallocate<node_type>(pNode);
+		mAllocator.deallocate_node(pNode);
 	}
 
 
@@ -1683,10 +1684,10 @@ namespace eastl
 		EASTL_ASSERT(n > 1); // We reserve an mnBucketCount of 1 for the shared gpEmptyBucketArray.
 		EASTL_CT_ASSERT(kHashtableAllocFlagBuckets == 0x00400000); // Currently we expect this to be so, because the allocator has a copy of this enum.
 //		node_type** const pBucketArray = (node_type**)EASTLAllocAlignedFlags(mAllocator, (n + 1) * sizeof(node_type*), EASTL_ALIGN_OF(node_type*), 0, kHashtableAllocFlagBuckets);
-		bucket_array_type const pBucketArray = mAllocator.template allocate_array_zeroed<node_pointer>(n + 1, kHashtableAllocFlagBuckets);
+		bucket_array_type const pBucketArray = mAllocator.allocate_array_zeroed(n + 1, kHashtableAllocFlagBuckets);
 		//eastl::fill(pBucketArray, pBucketArray + n, (node_type*)NULL);
 		//memset(pBucketArray, 0, n * sizeof(node_pointer));
-		pBucketArray[n] = mAllocator.template get_hashtable_sentinel<node_type>();
+		pBucketArray[n] = allocator_type::get_hashtable_sentinel();
 		return pBucketArray;
 	}
 
@@ -1701,7 +1702,7 @@ namespace eastl
 		// than another but pass a hashtable to another. So we go by the size.
 		if(n > 1)
 			// EASTLFree(mAllocator, pBucketArray, (n + 1) * sizeof(node_type*)); // '+1' because DoAllocateBuckets allocates nBucketCount + 1 buckets in order to have a NULL sentinel at the end.
-			mAllocator.template deallocate_array<node_pointer>(pBucketArray, n + 1);
+			mAllocator.deallocate_array(pBucketArray, n + 1);
 	}
 
 
@@ -1709,7 +1710,7 @@ namespace eastl
 			  typename H1, typename H2, typename H, typename RP, bool bC, bool bM, bool bU>
 	void hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::swap(this_type& x)
 	{
-		hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A::template pointer_types>::base_swap(x); // hash_code_base has multiple implementations, so we let them handle the swap.
+		hash_code_base<K, V, EK, Eq, H1, H2, H, bC, A>::base_swap(x); // hash_code_base has multiple implementations, so we let them handle the swap.
 		eastl::swap(mRehashPolicy, x.mRehashPolicy);
 		EASTL_MACRO_SWAP(bucket_array_type, mpBucketArray, x.mpBucketArray);
 		eastl::swap(mnBucketCount, x.mnBucketCount);
@@ -2051,7 +2052,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2110,7 +2111,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2133,7 +2134,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNode(Args&&... args)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.template allocate<node_type>();
+		node_pointer const pNode = mAllocator.allocate_node();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -2148,7 +2149,7 @@ namespace eastl
 			catch(...)
 			{
 //				EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.template deallocate<node_type>(pNode);
+				mAllocator.deallocate_node(pNode);
 				throw;
 			}
 		#endif
@@ -2212,7 +2213,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2278,7 +2279,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2313,7 +2314,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNode(value_type&& value)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.template allocate<node_type>();
+		node_pointer const pNode = mAllocator.allocate_node();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -2328,7 +2329,7 @@ namespace eastl
 			catch(...)
 			{
 //				EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.template deallocate<node_type>(pNode);
+				mAllocator.deallocate_node(pNode);
 				throw;
 			}
 		#endif
@@ -2384,7 +2385,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2450,7 +2451,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2485,7 +2486,7 @@ namespace eastl
 	hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::DoAllocateNode(const value_type& value)
 	{
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.template allocate<node_type>();
+		node_pointer const pNode = mAllocator.allocate_node();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 
 		#if EASTL_EXCEPTIONS_ENABLED
@@ -2500,7 +2501,7 @@ namespace eastl
 			catch(...)
 			{
 				// EASTLFree(mAllocator, pNode, sizeof(node_type));
-				mAllocator.template deallocate<node_type>(pNode);
+				mAllocator.deallocate_node(pNode);
 				throw;
 			}
 		#endif
@@ -2514,7 +2515,7 @@ namespace eastl
 	{
 		// We don't wrap this in try/catch because users of this function are expected to do that themselves as needed.
 //		node_type* const pNode = (node_type*)allocate_memory(mAllocator, sizeof(node_type), EASTL_ALIGN_OF(value_type), 0);
-		node_pointer const pNode = mAllocator.template allocate<node_type>();
+		node_pointer const pNode = mAllocator.allocate_node();
 		EASTL_ASSERT_MSG(pNode != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 		// Leave pNode->mValue uninitialized.
 		pNode->mpNext = NULL;
@@ -2528,7 +2529,7 @@ namespace eastl
 	{
 		// pNode->mValue is expected to be uninitialized.
 //		EASTLFree(mAllocator, pNode, sizeof(node_type));
-		mAllocator.template deallocate<node_type>(pNode);
+		mAllocator.deallocate_node(pNode);
 	}
 
 
@@ -2559,7 +2560,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2605,7 +2606,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2648,7 +2649,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2693,7 +2694,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != mAllocator.template get_empty_hashtable<node_pointer>());
+			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -3045,12 +3046,12 @@ namespace eastl
 		// container built into scratch memory.
 		mnBucketCount  = 1;
 
-		#ifdef _MSC_VER
-			mpBucketArray = mAllocator.template get_empty_hashtable<node_pointer>();
-		#else
-			void* p = &gpEmptyBucketArray[0];
-			memcpy(&mpBucketArray, &p, sizeof(mpBucketArray)); // Other compilers implement strict aliasing and casting is thus unsafe.
-		#endif
+		// #ifdef _MSC_VER
+			mpBucketArray = allocator_type::get_empty_hashtable();
+		// #else
+		// 	auto p = &gpEmptyBucketArray[0];
+		// 	memcpy(&mpBucketArray, &p, sizeof(mpBucketArray)); // Other compilers implement strict aliasing and casting is thus unsafe.
+		// #endif
 
 		mnElementCount = 0;
 		mRehashPolicy.mnNextResize = 0;
@@ -3126,10 +3127,10 @@ namespace eastl
 	inline bool hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::validate() const
 	{
 		// Verify our empty bucket array is unmodified.
-		if(mAllocator.template get_empty_hashtable<node_pointer>()[0] != NULL)
+		if(allocator_type::get_empty_hashtable()[0] != NULL)
 			return false;
 
-		if(mAllocator.template get_empty_hashtable<node_pointer>()[1] != mAllocator.template get_hashtable_sentinel<node_type>())
+		if(allocator_type::get_empty_hashtable()[1] != allocator_type::get_hashtable_sentinel())
 			return false;
 
 		// Verify that we have at least one bucket. Calculations can  
@@ -3139,7 +3140,7 @@ namespace eastl
 
 		// Verify that gpEmptyBucketArray is used correctly.
 		// gpEmptyBucketArray is only used when initially empty.
-		if(mpBucketArray == mAllocator.template get_empty_hashtable<node_pointer>())
+		if(mpBucketArray == allocator_type::get_empty_hashtable())
 		{
 			if(mnElementCount) // gpEmptyBucketArray is used only for empty hash tables.
 				return false;

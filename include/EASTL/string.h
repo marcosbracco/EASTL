@@ -461,7 +461,7 @@ namespace eastl
 			inline const value_type* CapacityPtr() const EA_NOEXCEPT     { return IsHeap() ? HeapCapacityPtr() : SSOCapacityPtr(); }
 
 			inline void SetHeapBeginPtr(heap_array_type pBegin) EA_NOEXCEPT  { heap.mpBegin = pBegin; }
-			inline heap_array_type GetHeapBeginPtr() EA_NOEXCEPT  { return heap.mpBegin; }
+			inline const heap_array_type& GetHeapBeginPtr() const EA_NOEXCEPT  { return heap.mpBegin; }
 
 			inline void SetHeapCapacity(size_type cap) EA_NOEXCEPT
 			{

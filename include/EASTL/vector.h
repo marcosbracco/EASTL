@@ -127,7 +127,7 @@ namespace eastl
 		typedef Allocator    allocator_type;
 		typedef eastl_size_t size_type;
 		typedef ptrdiff_t    difference_type;
-		typedef typename Allocator::template pointer_types<T>::array array_type;
+		typedef typename Allocator::array_pointer array_type;
 
 		#if defined(_MSC_VER) && (_MSC_VER >= 1400) && (_MSC_VER <= 1600) && !EASTL_STD_CPP_ONLY  // _MSC_VER of 1400 means VS2005, 1600 means VS2010. VS2012 generates errors with usage of enum:size_type.
 			enum : size_type {                      // Use Microsoft enum language extension, allowing for smaller debug symbols than using a static const. Users have been affected by this.
@@ -429,7 +429,7 @@ namespace eastl
 	{
 		if(mpBegin)
 //			EASTLFree(internalAllocator(), mpBegin, (internalCapacityPtr() - mpBegin) * sizeof(T));
-			internalAllocator().template deallocate_array<T>(mpBegin, internalCapacityPtr() - mpBegin);
+			internalAllocator().deallocate_array(mpBegin, internalCapacityPtr() - mpBegin);
 	}
 
 
@@ -469,7 +469,7 @@ namespace eastl
 		if(EASTL_LIKELY(n))
 		{
 //			auto* p = (T*)allocate_memory(internalAllocator(), n * sizeof(T), EASTL_ALIGN_OF(T), 0);
-			auto p = internalAllocator().template allocate_array<T>(n);
+			auto p = internalAllocator().allocate_array(n);
 			EASTL_ASSERT_MSG(p != nullptr, "the behaviour of eastl::allocators that return nullptr is not defined.");
 			return p;
 		}
@@ -485,7 +485,7 @@ namespace eastl
 	{
 		if(p)
 			// EASTLFree(internalAllocator(), p, n * sizeof(T)); 
-			internalAllocator().template deallocate_array<T>(p, n);
+			internalAllocator().deallocate_array(p, n);
 	}
 
 
