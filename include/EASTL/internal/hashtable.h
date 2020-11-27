@@ -323,27 +323,15 @@ namespace eastl
 		typedef ptrdiff_t                                                difference_type;
 		typedef EASTL_ITC_NS::forward_iterator_tag                       iterator_category;
 
-	protected:
-		typedef typename base_type::pointer_type                           pointer_type;
+		typedef typename base_type::pointer_type                         pointer_type;
 
-		template <typename, typename, typename, typename, typename, typename, typename, typename, typename, bool, bool, bool>
-		friend class hashtable;
-
-		hashtable_iterator(const pointer_type& pNode, pointer_type* pBucket = NULL)
+	public:
+		hashtable_iterator(const pointer_type& pNode = NULL, pointer_type* pBucket = NULL)
 			: base_type(pNode, pBucket) { }
 
 		hashtable_iterator(pointer_type* pBucket)
 			: base_type(*pBucket, pBucket) { }
-
-	public:
-		static
-		hashtable_iterator make_unsafe(const pointer_type& pNode, pointer_type* pBucket) {
-			return {pNode, pBucket};
-		}
 		
-		hashtable_iterator()
-			: base_type(NULL, NULL) { }
-
 		hashtable_iterator(const this_type_non_const& x)
 			: base_type(x.mpNode, x.mpBucket) { }
 
@@ -931,7 +919,7 @@ namespace eastl
 
 		iterator begin() EA_NOEXCEPT
 		{
-			iterator i(mpBucketArray);
+			iterator i(allocator_type::to_raw(mpBucketArray));
 			if(!i.mpNode)
 				i.increment_bucket();
 			return i;
@@ -939,7 +927,7 @@ namespace eastl
 
 		const_iterator begin() const EA_NOEXCEPT
 		{
-			const_iterator i(mpBucketArray);
+			const_iterator i(allocator_type::to_raw(mpBucketArray));
 			if(!i.mpNode)
 				i.increment_bucket();
 			return i;
@@ -2052,7 +2040,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+					EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2111,7 +2099,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+			EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2213,7 +2201,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+					EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2279,7 +2267,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+			EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2385,7 +2373,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+					EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2451,7 +2439,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+			EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2560,7 +2548,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+					EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2606,7 +2594,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+			EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -2649,7 +2637,7 @@ namespace eastl
 						DoRehash(bRehash.second);
 					}
 
-					EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+					EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 					pNodeNew->mpNext = mpBucketArray[n];
 					mpBucketArray[n] = pNodeNew;
 					++mnElementCount;
@@ -2694,7 +2682,7 @@ namespace eastl
 
 		if(pNodePrev == NULL)
 		{
-			EASTL_ASSERT(mpBucketArray != allocator_type::get_empty_hashtable());
+			EASTL_ASSERT(!allocator_type::is_empty_hashtable(mpBucketArray));
 			pNodeNew->mpNext = mpBucketArray[n];
 			mpBucketArray[n] = pNodeNew;
 		}
@@ -3127,10 +3115,11 @@ namespace eastl
 	inline bool hashtable<K, V, A, EK, Eq, H1, H2, H, RP, bC, bM, bU>::validate() const
 	{
 		// Verify our empty bucket array is unmodified.
-		if(allocator_type::get_empty_hashtable()[0] != NULL)
+		auto empty_hashtable = allocator_type::get_empty_hashtable();
+		if(empty_hashtable[0] != NULL)
 			return false;
 
-		if(allocator_type::get_empty_hashtable()[1] != allocator_type::get_hashtable_sentinel())
+		if(!allocator_type::is_hashtable_sentinel(empty_hashtable[1]))
 			return false;
 
 		// Verify that we have at least one bucket. Calculations can  
@@ -3140,7 +3129,7 @@ namespace eastl
 
 		// Verify that gpEmptyBucketArray is used correctly.
 		// gpEmptyBucketArray is only used when initially empty.
-		if(mpBucketArray == allocator_type::get_empty_hashtable())
+		if(allocator_type::is_empty_hashtable(mpBucketArray))
 		{
 			if(mnElementCount) // gpEmptyBucketArray is used only for empty hash tables.
 				return false;

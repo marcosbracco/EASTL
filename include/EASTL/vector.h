@@ -419,7 +419,7 @@ namespace eastl
 		: mCapacityAllocator(allocator)
 	{
 		mpBegin    = DoAllocate(n);
-		mpEnd      = mpBegin;
+		mpEnd      = allocator_type::to_raw(mpBegin);
 		internalCapacityPtr() = mpBegin + n;
 	}
 
@@ -690,7 +690,7 @@ namespace eastl
 	inline typename vector<T, Allocator>::iterator
 	vector<T, Allocator>::begin() EA_NOEXCEPT
 	{
-		return mpBegin;
+		return allocator_type::to_raw(mpBegin);
 	}
 
 
@@ -698,7 +698,7 @@ namespace eastl
 	inline typename vector<T, Allocator>::const_iterator
 	vector<T, Allocator>::begin() const EA_NOEXCEPT
 	{
-		return mpBegin;
+		return allocator_type::to_raw(mpBegin);
 	}
 
 
@@ -706,7 +706,7 @@ namespace eastl
 	inline typename vector<T, Allocator>::const_iterator
 	vector<T, Allocator>::cbegin() const EA_NOEXCEPT
 	{
-		return mpBegin;
+		return allocator_type::to_raw(mpBegin);
 	}
 
 
@@ -762,7 +762,7 @@ namespace eastl
 	inline typename vector<T, Allocator>::reverse_iterator
 	vector<T, Allocator>::rend() EA_NOEXCEPT
 	{
-		return reverse_iterator(mpBegin);
+		return reverse_iterator(allocator_type::to_raw(mpBegin));
 	}
 
 
@@ -770,7 +770,7 @@ namespace eastl
 	inline typename vector<T, Allocator>::const_reverse_iterator
 	vector<T, Allocator>::rend() const EA_NOEXCEPT
 	{
-		return const_reverse_iterator(mpBegin);
+		return const_reverse_iterator(allocator_type::to_raw(mpBegin));
 	}
 
 
@@ -778,7 +778,7 @@ namespace eastl
 	inline typename vector<T, Allocator>::const_reverse_iterator
 	vector<T, Allocator>::crend() const EA_NOEXCEPT
 	{
-		return const_reverse_iterator(mpBegin);
+		return const_reverse_iterator(allocator_type::to_raw(mpBegin));
 	}
 
 
@@ -883,7 +883,7 @@ namespace eastl
 	inline typename vector<T, Allocator>::pointer
 	vector<T, Allocator>::data() EA_NOEXCEPT
 	{
-		return mpBegin;
+		return allocator_type::to_raw(mpBegin);
 	}
 
 
@@ -891,7 +891,7 @@ namespace eastl
 	inline typename vector<T, Allocator>::const_pointer
 	vector<T, Allocator>::data() const EA_NOEXCEPT
 	{
-		return mpBegin;
+		return allocator_type::to_raw(mpBegin);
 	}
 
 
@@ -1331,7 +1331,7 @@ namespace eastl
 	inline void vector<T, Allocator>::clear() EA_NOEXCEPT
 	{
 		eastl::destruct(allocator_type::to_raw(mpBegin), mpEnd);
-		mpEnd = mpBegin;
+		mpEnd = allocator_type::to_raw(mpBegin);
 	}
 
 
@@ -1500,7 +1500,7 @@ namespace eastl
 	template <typename InputIterator, bool bMove>
 	void vector<T, Allocator>::DoAssignFromIterator(InputIterator first, InputIterator last, EASTL_ITC_NS::input_iterator_tag)
 	{
-		iterator position(mpBegin);
+		iterator position(allocator_type::to_raw(mpBegin));
 
 		while((position != mpEnd) && (first != last))
 		{
